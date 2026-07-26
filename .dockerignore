@@ -1,0 +1,8 @@
+# Keep the deployed image small and free of anything address-keyed or local.
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/raw/
+data/reports/
+webapp/static/vendor/.cache/

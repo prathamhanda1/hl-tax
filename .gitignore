@@ -1,0 +1,14 @@
+# Cached raw pulls from the info endpoint. Per docs/errors_in_plan.md #9:
+# Gate-1 test addresses are pulled from HL's public leaderboard -- real
+# traders' wallets. Their fetched history must stay local, never committed.
+data/raw/
+
+# Generated reports (ledger/schedule-VDA/summary) are computed FROM a real
+# address's history -- same privacy concern as data/raw/. Keep them local.
+data/reports/
+
+__pycache__/
+*.pyc
+
+# fx/data/ *.csv (Phase 4's cached FBIL/RBI series) is fine to commit --
+# only address-keyed trade data is the concern above.

@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hl-tax-engine · four-reading analysis portal</title>
+<style>
+/* ============================================================
+   TOKENS — swap the entire look by editing this block alone.
+   Palette tone: hl.eco (near-black teal surfaces, mint accent).
+   ============================================================ */
+:root{
+  /* surfaces */
+  --bg:#061515; --s1:#0a1e1e; --s2:#0e2626; --s3:#133030; --s4:#0d1f1f;
+  /* borders */
+  --bd:#173836; --bd-strong:#26514e; --bw:1px; --bw-thick:2px;
+  /* text */
+  --tx:#e4f3f0; --tx2:#9dbdb8; --tx3:#6a8b87;
+  /* accent + semantics */
+  --ac:#50d2c1; --ac-dim:#153a37; --ac-tx:#062020;
+  --pos:#5fd6a4; --neg:#e88b84; --warn:#e0c273; --cf:#9fa9f0; --flag:#e0c273;
+  /* radii, shadow, type */
+  --r1:2px; --r2:5px; --r3:9px;
+  --sh1:0 1px 0 rgba(255,255,255,.02) inset; --sh2:0 18px 48px rgba(0,0,0,.55);
+  --sans:system-ui,-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SFMono-Regular","JetBrains Mono",Menlo,Consolas,monospace;
+  /* spacing scale */
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:18px; --sp5:26px; --sp6:40px; --sp7:64px;
+}
+:root[data-theme="light"]{
+  --bg:#f2f6f5; --s1:#ffffff; --s2:#f7fbfa; --s3:#eef4f3; --s4:#ffffff;
+  --bd:#d7e3e1; --bd-strong:#b7cbc8;
+  --tx:#0a1e1e; --tx2:#3f5b58; --tx3:#6c8582;
+  --ac:#0f9e8c; --ac-dim:#dcf1ee; --ac-tx:#ffffff;
+  --pos:#0d8a63; --neg:#b4423c; --warn:#8a6a12; --cf:#4a52ad; --flag:#8a6a12;
+  --sh2:0 18px 48px rgba(10,30,30,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--ac);text-decoration:none}
+a:hover{color:var(--tx);text-decoration:underline}
+input,button,select,textarea{font:inherit;color:inherit}
+input::placeholder{color:var(--tx3)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--bd-strong);border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes hl-pulse{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes hl-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes hl-slide{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (max-width:900px){
+  [data-docs-aside]{width:100vw !important;min-width:0 !important;border-left:0 !important}
+  [data-docs-rail]{display:none !important}
+}
+[data-doc-body] pre,[data-doc-body] table{max-width:100%;overflow-x:auto;display:block}
+@media print{
+  [data-noprint]{display:none !important}
+  html,body{background:#fff;color:#000}
+  :root{--bg:#fff;--s1:#fff;--s2:#fff;--s3:#fff;--s4:#fff;--bd:#bbb;--bd-strong:#888;--tx:#000;--tx2:#333;--tx3:#555;--ac:#046;--sh2:none}
+  [data-cards]{grid-template-columns:repeat(2,1fr) !important}
+  [data-scrollbox]{overflow:visible !important;max-height:none !important}
+}
+</style>
+</helmet>
+<div style="min-height:100vh;background:var(--bg)">
+
+<!-- ============ A. HEADER (sticky) ============ -->
+<header style="position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(10px);border-bottom:var(--bw) solid var(--bd)">
+  <div style="max-width:1560px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+      <span style="font-family:var(--mono);font-size:14px;letter-spacing:.02em;color:var(--tx)">hl-tax-engine</span>
+      <span style="font-size:11.5px;color:var(--tx3);letter-spacing:.01em">Indian income-tax position of Hyperliquid perpetuals.</span>
+    </div>
+    <div style="flex:1"></div>
+    <nav style="display:flex;align-items:center;gap:6px;flex-wrap:wrap" data-noprint="">
+      <button type="button" onClick="{{ openDocsHome }}" style="font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:7px 11px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--bd-strong);color:var(--tx)">Documentation</button>
+      <button type="button" onClick="{{ openReport }}" style="font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;background:var(--ac);color:var(--ac-tx);border:var(--bw) solid var(--ac);border-radius:var(--r2);padding:7px 11px;cursor:pointer;font-weight:600" style-hover="filter:brightness(1.08)">Generate CA report</button>
+      <a href="#methodology-assumptions" style="font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:7px 11px;color:var(--tx2)" style-hover="border-color:var(--bd-strong);color:var(--tx)">Methodology / Assumptions</a>
+      
+      <button type="button" onClick="{{ openAbout }}" style="font-size:11.5px;background:transparent;border:0;padding:7px 4px;cursor:pointer;color:var(--tx3);text-decoration:underline;text-underline-offset:3px" style-hover="color:var(--tx2)">About / Source</button>
+    </nav>
+  </div>
+
+  <!-- context strip: appears once results land (meta.*) -->
+  <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1560px;margin:0 auto;padding:0 24px 9px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--tx2)">
+      <span style="display:inline-flex;align-items:center;gap:7px;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:999px;padding:3px 4px 3px 10px">
+        <span title="{{ addrFull }}">{{ addrShort }}</span>
+        <button type="button" onClick="{{ copyAddr }}" aria-label="Copy full address" title="Copy full address" style="font-family:var(--mono);font-size:10px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:999px;padding:2px 8px;cursor:pointer;color:var(--tx3)" style-hover="color:var(--ac)">{{ copyLabel }}</button>
+      </span>
+      <span style="color:var(--tx3)">events</span><span title="meta.event_range">{{ eventRange }}</span>
+      <span style="color:var(--tx3)">generated</span><span title="meta.generated_utc">{{ generatedUtc }}</span>
+      <span style="color:var(--tx3)">fx</span>
+      <span title="meta.fx_convention">{{ fxConvention }}</span>
+      <button type="button" onClick="{{ openDocsFx }}" style="font-family:var(--mono);font-size:10px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:1px 6px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)" data-noprint="">docs</button>
+      <sc-if value="{{ hasModifiedInputs }}" hint-placeholder-val="{{ false }}">
+        <span title="{{ modifiedInputsTitle }}" style="color:var(--warn);border:var(--bw) solid var(--warn);border-radius:var(--r1);padding:2px 8px">modified input · {{ modifiedInputs }}</span>
+      </sc-if>
+      <sc-if value="{{ isCompactable }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ toggleCompact }}" style="margin-left:auto;font-family:var(--mono);font-size:10.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:2px 8px;cursor:pointer;color:var(--tx3)" style-hover="color:var(--tx)" data-noprint="">{{ compactLabel }}</button>
+      </sc-if>
+    </div>
+  </sc-if>
+</header>
+
+<!-- ============ B. DISCLAIMER BAND ============ -->
+<div style="border-bottom:var(--bw) solid var(--bd);background:var(--s4)">
+  <div style="max-width:1560px;margin:0 auto;padding:11px 24px;display:flex;gap:16px;align-items:flex-start">
+    <span aria-hidden="true" style="flex:none;margin-top:2px;width:9px;height:9px;border-radius:50%;border:var(--bw-thick) solid var(--warn)"></span>
+    <div style="flex:1;min-width:0">
+      <sc-if value="{{ disclaimerOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;gap:5px;font-size:12.5px;line-height:1.55;color:var(--tx2);max-width:112ch">
+          <div><strong style="color:var(--tx);font-weight:600">This is not tax advice.</strong> The tax treatment of USDC-settled perpetual futures is unsettled in Indian law. The only claim made here is arithmetic under stated assumptions. Verify every section number and every rate with a practising Chartered Accountant before filing.</div>
+          <div><strong style="color:var(--tx);font-weight:600">Read-only.</strong> Public wallet address only. This tool never asks for a private key, seed phrase, or exchange API secret, and has no field that would accept one.</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ disclaimerClosed }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12.5px;color:var(--tx2)">Not tax advice · arithmetic only under stated assumptions · read-only, public address only, never asks for keys.</div>
+      </sc-if>
+    </div>
+    <button type="button" onClick="{{ toggleDisclaimer }}" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:3px 8px;cursor:pointer;color:var(--tx3)" style-hover="color:var(--tx)" data-noprint="">{{ disclaimerToggleLabel }}</button>
+  </div>
+</div><main style="max-width:1560px;margin:0 auto;padding:var(--sp6) 24px var(--sp7)">
+
+  <!-- ============ C. INPUT CONSOLE ============ -->
+  <section aria-label="Address input console" style="background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);box-shadow:var(--sh1);overflow:hidden">
+    <div style="padding:26px 26px 22px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:14px">Analyze an address</div>
+      <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">
+        <div style="flex:1 1 460px;min-width:260px;position:relative">
+          <input type="text" inputMode="text" autoComplete="off" spellCheck="false" aria-label="Public wallet address, 0x followed by 40 hex characters" placeholder="0x…" value="{{ address }}" onInput="{{ onAddressInput }}" onKeyDown="{{ onAddressKeyDown }}" style="width:100%;font-family:var(--mono);font-size:17px;letter-spacing:.01em;background:var(--s3);color:var(--tx);border:var(--bw) solid var(--bd-strong);border-radius:var(--r2);padding:16px 112px 16px 16px">
+          <span style="{{ validityStyle }}">{{ validityLabel }}</span>
+        </div>
+        <button type="button" onClick="{{ analyze }}" disabled="{{ analyzeDisabled }}" style="{{ analyzeStyle }}">{{ analyzeLabel }}</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:11px;flex-wrap:wrap">
+        <button type="button" onClick="{{ loadExample }}" style="font-family:var(--mono);font-size:11px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:999px;padding:5px 12px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--ac);color:var(--ac)">Load example address</button>
+        <span style="font-size:11.5px;color:var(--tx3)">Read-only. Public wallet address only. This tool never asks for a private key, seed phrase, or API secret.</span>
+      </div>
+
+      <!-- advanced inputs -->
+      <div style="margin-top:20px;border-top:var(--bw) solid var(--bd);padding-top:14px">
+        <button type="button" id="advanced-inputs" onClick="{{ toggleAdvanced }}" aria-expanded="{{ advancedOpen }}" style="display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;background:transparent;border:0;padding:0;cursor:pointer;color:var(--tx2)" style-hover="color:var(--tx)">
+          <span aria-hidden="true" style="{{ advancedCaretStyle }}">▸</span>Advanced inputs 
+        </button>
+        <sc-if value="{{ advancedOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px 26px">
+            <label style="display:grid;gap:6px">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--tx)">as_of</span>
+              <input type="date" value="{{ advAsOf }}" onInput="{{ onAsOf }}" style="font-family:var(--mono);font-size:13px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 11px;color:var(--tx)">
+              <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">Bound the analysis to events on or before this date (e.g. a financial-year end).</span>
+            </label>
+            <label style="display:grid;gap:6px" id="onramp-cost-field">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--tx)">onramp_cost <span style="color:var(--tx3)">INR</span></span>
+              <input type="number" min="0" step="1" placeholder="—" value="{{ advOnramp }}" onInput="{{ onOnramp }}" style="font-family:var(--mono);font-size:13px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 11px;color:var(--tx)">
+              <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">What you actually paid, in INR, to acquire the USDC. The engine cannot see your Indian-exchange purchase; supply it and the VDA reading covers the full chain.</span>
+            </label>
+            <label style="display:grid;gap:6px">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--tx)">salary_income_inr</span>
+              <input type="number" min="0" step="1" placeholder="—" value="{{ advSalary }}" onInput="{{ onSalary }}" style="font-family:var(--mono);font-size:13px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 11px;color:var(--tx)">
+              <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">Other-head income, used only to demonstrate set-off under OP 4. Salary is protected: a business loss cannot be set off against it.</span>
+            </label>
+            <label style="display:grid;gap:6px">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--tx)">other_head_income_inr</span>
+              <input type="number" min="0" step="1" placeholder="—" value="{{ advOther }}" onInput="{{ onOther }}" style="font-family:var(--mono);font-size:13px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 11px;color:var(--tx)">
+              <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">Other-head income, used only to demonstrate set-off under OP 4.</span>
+            </label>
+            <label style="display:flex;gap:11px;align-items:flex-start">
+              <input type="checkbox" checked="{{ advRefresh }}" onChange="{{ onRefresh }}" style="margin-top:3px;accent-color:var(--ac);width:15px;height:15px">
+              <span style="display:grid;gap:6px">
+                <span style="font-family:var(--mono);font-size:11px;color:var(--tx)">refresh</span>
+                <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">Bypass the cache and re-pull raw history from the API. Slower.</span>
+              </span>
+            </label>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- empty / loading / error panes -->
+    <sc-if value="{{ showEmptyIntro }}" hint-placeholder-val="{{ true }}">
+      <div style="border-top:var(--bw) solid var(--bd);background:var(--s2);padding:24px 26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">What this does</div>
+          <p style="margin:0;font-size:12.5px;line-height:1.65;color:var(--tx2);text-wrap:pretty">Reconstructs your Hyperliquid perpetuals history, converts every leg at the reference rate for its business day, and computes the Indian tax position under four competing legal readings side by side. It does not pick a winner.</p>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">The four readings</div>
+          <ol style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.75;color:var(--tx2)">
+            <sc-for list="{{ labelList }}" as="lbl" hint-placeholder-count="4"><li>{{ lbl }}</li></sc-for>
+          </ol>
+        </div>
+        <div style="width: 190px; height: 141px">
+          
+          
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap" data-noprint="">
+            <button type="button" onClick="{{ openDocsTreatments }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)">Treatments guide →</button><button type="button" onClick="{{ openDocsLimitations }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)">Limitations →</button>
+            
+            
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+      <div style="border-top:var(--bw) solid var(--bd);background:var(--s2);padding:22px 26px" aria-live="polite">
+        <div style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center">
+          <sc-for list="{{ phaseSteps }}" as="step" hint-placeholder-count="6">
+            <span style="{{ step.style }}"><span aria-hidden="true">{{ step.glyph }}</span> {{ step.name }}</span>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px;height:3px;background:var(--s3);border-radius:999px;overflow:hidden"><div style="{{ progressStyle }}"></div></div>
+        <div style="margin-top:12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--tx2)">First run for a new address takes longer; results are cached afterwards.</span>
+          <button type="button" onClick="{{ cancel }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:5px 11px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--neg);color:var(--neg)">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ errorPanelStyle }}" role="alert">
+        <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1 1 420px;min-width:240px">
+            <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:{{ errorAccent }};margin-bottom:7px">{{ errorKicker }}</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:7px">{{ errorTitle }}</div>
+            <p style="margin:0;font-size:12.5px;line-height:1.65;color:var(--tx2);max-width:86ch;text-wrap:pretty">{{ errorBody }}</p>
+            <sc-if value="{{ hasServerMessage }}" hint-placeholder-val="{{ false }}">
+              <pre style="margin:12px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--tx2);background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:10px 12px;white-space:pre-wrap">{{ serverMessage }}</pre>
+            </sc-if>
+            <sc-if value="{{ hasErrorSuggestions }}" hint-placeholder-val="{{ false }}">
+              <ul style="margin:12px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--tx2)">
+                <sc-for list="{{ errorSuggestions }}" as="s" hint-placeholder-count="3"><li>{{ s }}</li></sc-for>
+              </ul>
+            </sc-if>
+          </div>
+          <sc-if value="{{ isFxError }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:0 0 260px;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:14px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--tx);margin-bottom:8px">Set as_of and re-run</div>
+              <input type="date" value="{{ advAsOf }}" onInput="{{ onAsOf }}" style="width:100%;font-family:var(--mono);font-size:13px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 11px;color:var(--tx)">
+              <button type="button" onClick="{{ analyze }}" style="margin-top:10px;width:100%;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;background:var(--ac);color:var(--ac-tx);border:0;border-radius:var(--r2);padding:10px;cursor:pointer;font-weight:600">Re-run bounded</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isRetryable }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ analyze }}" style="flex:none;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;background:transparent;border:var(--bw) solid var(--bd-strong);border-radius:var(--r2);padding:10px 16px;cursor:pointer;color:var(--tx)" style-hover="border-color:var(--ac);color:var(--ac)">Retry</button>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- warnings[] -->
+  <sc-if value="{{ hasWarnings }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-top:14px;border:var(--bw) solid var(--warn);border-radius:var(--r2);background:var(--s2)">
+      <button type="button" onClick="{{ toggleWarnings }}" aria-expanded="{{ warningsOpen }}" style="width:100%;display:flex;align-items:center;gap:10px;background:transparent;border:0;padding:10px 14px;cursor:pointer;text-align:left">
+        <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--warn)">Notices ({{ warningCount }})</span>
+        <span style="font-size:12px;color:var(--tx2);flex:1">Reported verbatim by the engine</span>
+        <span aria-hidden="true" style="color:var(--tx3);font-family:var(--mono);font-size:11px">{{ warningsToggleGlyph }}</span>
+      </button>
+      <sc-if value="{{ warningsOpen }}" hint-placeholder-val="{{ true }}">
+        <ul style="margin:0;padding:0 16px 12px 34px;font-size:12.5px;line-height:1.7;color:var(--tx2)">
+          <sc-for list="{{ warnings }}" as="w" hint-placeholder-count="2"><li>{{ w }}</li></sc-for>
+        </ul>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ false }}">
+  <div>
+    <!-- ============ D. HEADLINE STRIP ============ -->
+    <section aria-label="Headline figures" style="margin-top:var(--sp6);display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--sp3)">
+      <sc-for list="{{ headline }}" as="tile" hint-placeholder-count="4">
+        <div style="{{ tile.boxStyle }}">
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3)">{{ tile.label }}</div>
+          <div style="{{ tile.valueStyle }}" title="{{ tile.title }}">{{ tile.value }}</div>
+          <div style="{{ tile.subStyle }}">{{ tile.sub }}</div>
+          <div style="margin-top:auto;padding-top:10px;font-size:11.5px;line-height:1.55;color:var(--tx3);text-wrap:pretty">{{ tile.caption }}</div>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- ============ E. FOUR INTERPRETATION CARDS ============ -->
+    <section aria-label="The four interpretations" style="margin-top:var(--sp6)">
+      <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:var(--sp3);flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0;font-size:13px;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);font-weight:500">Four readings, presented as equal peers</h2>
+          <p style="margin:7px 0 0;font-size:12.5px;color:var(--tx2);max-width:100ch;text-wrap:pretty">Ordered by statute section number, never by value. None is recommended, likely, or default. The engine supplies the arithmetic; the choice of reading belongs to you and your Chartered Accountant.</p>
+        </div>
+        <button type="button" onClick="{{ toggleAllCaveats }}" style="margin-left:auto;font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 11px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--bd-strong);color:var(--tx)" data-noprint="">{{ expandAllLabel }}</button>
+      </div>
+
+      <div data-cards="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:var(--sp3);align-items:start">
+        <sc-for list="{{ cards }}" as="card" hint-placeholder-count="4">
+          <article data-screen-label="{{ card.key }}" style="{{ card.boxStyle }}">
+            <div style="padding:16px 16px 0">
+              <div style="font-size:13.5px;font-weight:600;line-height:1.4;letter-spacing:-.01em;min-height:2.8em">{{ card.label }}</div>
+              <div style="margin-top:11px;display:grid;gap:7px">
+                <sc-for list="{{ card.actGroups }}" as="grp" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                    <span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--tx3);width:30px;flex:none">{{ grp.year }}</span>
+                    <sc-for list="{{ grp.refs }}" as="ref" hint-placeholder-count="2">
+                      <span style="font-family:var(--mono);font-size:10.5px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:999px;padding:2px 9px;color:var(--tx2)">{{ ref }}</span>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="{{ card.premiseStyle }}" title="{{ card.premiseTitle }}">{{ card.premiseLabel }}</div>
+            <sc-if value="{{ card.isCf }}" hint-placeholder-val="{{ false }}">
+              <p style="margin:0;padding:0 16px 4px;font-size:11.5px;line-height:1.55;color:var(--cf);text-wrap:pretty">This reading requires INR-margined settlement, which this account does not have. Shown for completeness, not as an available option.</p>
+            </sc-if>
+
+            <div style="padding:14px 16px 0">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3)">Total tax</div>
+              <div style="font-family:var(--mono);font-size:27px;font-weight:600;letter-spacing:-.02em;margin-top:5px;line-height:1.1" title="{{ card.totalTitle }}">{{ card.total }}</div>
+            </div>
+
+            <dl style="margin:14px 0 0;padding:0 16px">
+              <sc-for list="{{ card.rows }}" as="row" hint-placeholder-count="9">
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:5px 0;border-top:var(--bw) solid var(--bd)">
+                  <dt style="font-size:11.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ row.k }}</dt>
+                  <dd style="{{ row.style }}" title="{{ row.title }}">{{ row.v }}</dd>
+                </div>
+              </sc-for>
+            </dl>
+
+            <div style="padding:12px 16px 0">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)">Loss treatment</div>
+              <div style="margin-top:5px;font-size:12px;line-height:1.5;color:var(--tx);text-wrap:pretty">{{ card.lossLabel }}</div>
+            </div>
+
+            <sc-if value="{{ card.auditFlag }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:12px 16px 0;border:var(--bw) solid var(--warn);border-radius:var(--r2);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--warn)">Turnover above the audit threshold — tax audit likely applicable.</div>
+            </sc-if>
+
+            <sc-if value="{{ card.hasSetoffBlock }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:12px 16px 0;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:11px">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);margin-bottom:7px">Set-off detail (OP 4)</div>
+                <sc-for list="{{ card.setoffRows }}" as="srow" hint-placeholder-count="4">
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:3px 0">
+                    <span style="color:var(--tx3)">{{ srow.k }}</span>
+                    <span style="font-family:var(--mono);color:var(--tx)" title="{{ srow.title }}">{{ srow.v }}</span>
+                  </div>
+                </sc-for>
+                <div style="margin-top:7px;font-size:11px;line-height:1.5;color:var(--tx3)">Salary is untouched by design: a business loss cannot be set off against salary income.</div>
+              </div>
+            </sc-if>
+
+            <div style="margin-top:14px;border-top:var(--bw) solid var(--bd)">
+              <sc-if value="{{ card.caveatsOpen }}" hint-placeholder-val="{{ false }}">
+                <ul style="margin:0;padding:12px 16px 4px 34px;font-size:11.5px;line-height:1.65;color:var(--tx2)">
+                  <sc-for list="{{ card.caveats }}" as="cv" hint-placeholder-count="3"><li>{{ cv }}</li></sc-for>
+                </ul>
+              </sc-if>
+              <div style="display:flex;gap:8px;padding:11px 16px 14px;flex-wrap:wrap" data-noprint="">
+                <button type="button" onClick="{{ card.toggleCaveats }}" aria-expanded="{{ card.caveatsOpen }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--bd-strong);color:var(--tx)">Caveats ({{ card.caveatCount }})</button>
+                <button type="button" onClick="{{ card.openDocs }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)">Read the reasoning →</button>
+              </div>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ============ F. COMPARISON AND COMPOSITION ============ -->
+    <section aria-label="Comparison and composition" style="margin-top:var(--sp6);display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:var(--sp3)">
+      <div style="background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);padding:18px">
+        <h3 style="margin:0 0 4px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);font-weight:500">Total tax by interpretation</h3>
+        <p style="margin:0 0 16px;font-size:11.5px;color:var(--tx3)">Axis starts at zero. No bar is highlighted as preferred.</p>
+        <sc-if value="{{ allZeroTax }}" hint-placeholder-val="{{ false }}">
+          <div style="border:var(--bw) dashed var(--bd-strong);border-radius:var(--r2);padding:20px;font-size:12.5px;color:var(--tx2)">No tax under any reading for this address and window.</div>
+        </sc-if>
+        <sc-if value="{{ anyTax }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;gap:13px">
+            <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="4">
+              <div>
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px">
+                  <span style="font-size:11.5px;color:var(--tx2)">{{ bar.label }}</span>
+                  <span style="font-family:var(--mono);font-size:12px;color:var(--tx)" title="{{ bar.title }}">{{ bar.value }}</span>
+                </div>
+                <div style="height:16px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r1);overflow:hidden">
+                  <div style="{{ bar.fillStyle }}"></div>
+                </div>
+                <sc-if value="{{ bar.isCf }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--cf)">COUNTERFACTUAL FOR THIS ADDRESS</div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="margin-top:16px;font-family:var(--mono);font-size:10px;color:var(--tx3);line-height:1.6">drawn from treatments.*.total_tax_inr, treatments.*.premise</div>
+      </div>
+
+      <div style="background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);padding:18px">
+        <h3 style="margin:0 0 4px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);font-weight:500">VDA reading: gross vs net</h3>
+        <p style="margin:0 0 16px;font-size:11.5px;color:var(--tx3)">The gap is income taxed because losses are not allowed to offset gains.</p>
+        <div style="display:grid;gap:11px">
+          <sc-for list="{{ waterfall }}" as="w" hint-placeholder-count="3">
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px">
+                <span style="font-size:11.5px;color:var(--tx2)">{{ w.label }}</span>
+                <span style="font-family:var(--mono);font-size:12px;color:{{ w.color }}" title="{{ w.title }}">{{ w.value }}</span>
+              </div>
+              <div style="height:14px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r1);overflow:hidden"><div style="{{ w.fillStyle }}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:13px;border:var(--bw) solid var(--ac);border-radius:var(--r2);padding:11px 13px;background:var(--ac-dim)">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)">Gross-vs-net gap</div>
+          <div style="font-family:var(--mono);font-size:19px;font-weight:600;margin-top:3px" title="{{ gapTitle }}">{{ gapValue }}</div>
+        </div>
+
+        <div style="margin-top:20px;border-top:var(--bw) solid var(--bd);padding-top:16px">
+          <h3 style="margin:0 0 11px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);font-weight:500">Event composition</h3>
+          <div style="display:flex;height:18px;border-radius:var(--r1);overflow:hidden;border:var(--bw) solid var(--bd)">
+            <sc-for list="{{ composition }}" as="c" hint-placeholder-count="5">
+              <div style="{{ c.segStyle }}" title="{{ c.title }}"></div>
+            </sc-for>
+          </div>
+          <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px">
+            <sc-for list="{{ composition }}" as="c" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--tx2)">
+                <span aria-hidden="true" style="{{ c.dotStyle }}"></span>
+                <span style="font-family:var(--mono)">{{ c.label }}</span>
+                <span style="margin-left:auto;font-family:var(--mono);color:var(--tx3)">{{ c.countPct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="margin-top:16px;font-family:var(--mono);font-size:10px;color:var(--tx3);line-height:1.6">drawn from treatments.vda.vda_gross_base_inr, vda_net_base_inr, vda_gross_vs_net_gap_inr, ledger_counts</div>
+      </div>
+    </section>
+
+    <section aria-label="Per-episode income" style="margin-top:var(--sp3);background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);padding:18px">
+      <h3 style="margin:0 0 4px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);font-weight:500">Per-episode income · the shape of the trading year</h3>
+      <p style="margin:0 0 18px;font-size:11.5px;color:var(--tx3)">One mark per closed episode, chronological. Above the axis is income, below is loss. Hover for asset, episode, dates and amount.</p>
+      <div data-scrollbox="1" style="overflow-x:auto">
+        <div style="min-width:520px">
+          <div style="display:flex;align-items:flex-end;gap:3px;height:88px">
+            <sc-for list="{{ episodesUp }}" as="e" hint-placeholder-count="9">
+              <div style="{{ e.style }}" title="{{ e.title }}"></div>
+            </sc-for>
+          </div>
+          <div style="height:1px;background:var(--bd-strong)"></div>
+          <div style="display:flex;align-items:flex-start;gap:3px;height:88px">
+            <sc-for list="{{ episodesDown }}" as="e" hint-placeholder-count="9">
+              <div style="{{ e.style }}" title="{{ e.title }}"></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;font-family:var(--mono);font-size:10px;color:var(--tx3)">drawn from schedule_vda[].income_inr, .asset, .episode_id, .date_of_acquisition, .date_of_transfer</div>
+    </section>
+
+    <!-- ============ G. TDS PANEL ============ -->
+    <section aria-label="TDS" style="margin-top:var(--sp6);border:var(--bw) solid var(--bd-strong);border-radius:var(--r3);background:var(--s2);overflow:hidden">
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd);display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:15px;font-weight:600">Tax deducted at source</h2>
+        <span style="font-family:var(--mono);font-size:11.5px;color:var(--tx2)">rate {{ tdsRate }}</span>
+        <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+          <sc-for list="{{ tdsPills }}" as="p" hint-placeholder-count="2">
+            <span style="font-family:var(--mono);font-size:10.5px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:999px;padding:2px 9px;color:var(--tx2)">{{ p }}</span>
+          </sc-for>
+          <button type="button" onClick="{{ openDocsTds }}" style="font-family:var(--mono);font-size:10.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:999px;padding:2px 9px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)" data-noprint="">docs</button>
+        </div>
+      </div>
+      <div style="padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">Expected TDS on P&amp;L, by reading</div>
+          <sc-for list="{{ tdsByReading }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:var(--bw) solid var(--bd);font-size:12px">
+              <span style="color:var(--tx2)">{{ r.label }}</span>
+              <span style="font-family:var(--mono);color:var(--tx)" title="{{ r.title }}">{{ r.value }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">Legs, venue and thresholds</div>
+          <sc-for list="{{ tdsFacts }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:var(--bw) solid var(--bd);font-size:12px">
+              <span style="color:var(--tx2)">{{ r.label }}</span>
+              <span style="font-family:var(--mono);color:var(--tx)" title="{{ r.title }}">{{ r.value }}</span>
+            </div>
+          </sc-for>
+          <p style="margin:12px 0 0;font-size:11.5px;line-height:1.6;color:var(--tx3);text-wrap:pretty">Nothing was withheld on the venue: Hyperliquid is not an Indian intermediary and deducts no Indian tax. Any TDS on your chain was withheld at the Indian-exchange ramp, and that amount is creditable against your final liability.</p>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">Caveats</div>
+          <ul style="margin:0;padding-left:17px;font-size:11.5px;line-height:1.65;color:var(--tx2)">
+            <sc-for list="{{ tdsCaveats }}" as="c" hint-placeholder-count="3"><li>{{ c }}</li></sc-for>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ H. CROSS-CUTTING / BOUNDARY / DISCLOSURE ============ -->
+    <section id="methodology-assumptions" aria-label="Cross-cutting, boundary and disclosure" style="margin-top:var(--sp6);border:var(--bw) solid var(--bd);border-radius:var(--r3);background:var(--s1);overflow:hidden">
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd);display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:15px;font-weight:600">Methodology, limitations and assumptions</h2>
+        <button type="button" onClick="{{ openDocsMethodology }}" style="margin-left:auto;font-family:var(--mono);font-size:10.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:999px;padding:3px 10px;cursor:pointer;color:var(--ac)" style-hover="background:var(--ac-dim)" data-noprint="">docs</button>
+      </div>
+
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd)">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--warn);margin-bottom:11px">Limitations</div>
+        <ul style="margin:0;padding-left:19px;font-size:13px;line-height:1.75;color:var(--tx);max-width:110ch">
+          <sc-for list="{{ limitations }}" as="l" hint-placeholder-count="4"><li>{{ l }}</li></sc-for>
+        </ul>
+      </div>
+
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd)">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:9px">On-ramp / off-ramp boundary</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.7;color:var(--tx2);max-width:110ch;text-wrap:pretty">{{ onrampNote }}</p>
+        <sc-if value="{{ onrampMissing }}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{ jumpToOnramp }}" style="margin-top:12px;font-family:var(--mono);font-size:11.5px;background:transparent;border:var(--bw) solid var(--warn);border-radius:var(--r2);padding:8px 12px;cursor:pointer;color:var(--warn)" style-hover="background:var(--s3)" data-noprint="">Supply onramp_cost and close the gap →</button>
+        </sc-if>
+        <sc-if value="{{ onrampSupplied }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px;font-family:var(--mono);font-size:11.5px;color:var(--ac)">onramp_cost supplied: {{ onrampValue }}</div>
+        </sc-if>
+      </div>
+
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px">AIS asymmetry</div>
+          <p style="margin:0;font-size:12.5px;line-height:1.7;color:var(--tx2);text-wrap:pretty">{{ aisNote }}</p>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px">Capital gains excluded</div>
+          <p style="margin:0;font-size:12.5px;line-height:1.7;color:var(--tx2);text-wrap:pretty">{{ cgNote }}</p>
+        </div>
+      </div>
+
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd)">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:11px">Disclosure checklist <span style="letter-spacing:0;text-transform:none;color:var(--tx3)">· local only, not saved</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 20px">
+          <sc-for list="{{ checklist }}" as="item" hint-placeholder-count="4">
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:var(--tx2);cursor:pointer">
+              <input type="checkbox" checked="{{ item.checked }}" onChange="{{ item.toggle }}" style="margin-top:2px;accent-color:var(--ac);width:15px;height:15px">
+              <span>{{ item.text }}</span>
+            </label>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding:18px 20px">
+        <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px">
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3)">Assumptions box</div>
+          <span style="font-size:11.5px;color:var(--tx3)">every value the engine used, including anything you supplied</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 32px">
+          <sc-for list="{{ assumptions }}" as="a" hint-placeholder-count="10">
+            <div style="display:flex;justify-content:space-between;gap:14px;align-items:baseline;padding:6px 0;border-bottom:var(--bw) solid var(--bd)">
+              <span style="font-family:var(--mono);font-size:11.5px;color:var(--tx3)">{{ a.k }}</span>
+              <span style="{{ a.style }}" title="{{ a.title }}">{{ a.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;color:var(--tx2)">
+          <span>has_stablecoin_legs · {{ hasStablecoinLegs }}</span>
+          <span>non_hyperliquid_asset_classes_detected · {{ nonHlClasses }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ I. DATA TABLES ============ -->
+    <section aria-label="Data tables" style="margin-top:var(--sp6);border:var(--bw) solid var(--bd);border-radius:var(--r3);background:var(--s1);overflow:hidden">
+      <div style="display:flex;gap:0;border-bottom:var(--bw) solid var(--bd);flex-wrap:wrap">
+        <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="2">
+          <button type="button" onClick="{{ tab.select }}" aria-pressed="{{ tab.active }}" style="{{ tab.style }}">{{ tab.label }}</button>
+        </sc-for>
+        <div style="flex:1;min-width:12px"></div>
+        <div style="display:flex;gap:8px;align-items:center;padding:8px 14px;flex-wrap:wrap" data-noprint="">
+          <input type="search" placeholder="Filter rows…" value="{{ tableFilter }}" onInput="{{ onFilter }}" aria-label="Filter table rows" style="font-family:var(--mono);font-size:11.5px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;width:170px;color:var(--tx)">
+          <button type="button" onClick="{{ downloadTableCsv }}" style="font-family:var(--mono);font-size:11px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:6px 10px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--ac);color:var(--ac)">Download CSV</button>
+        </div>
+      </div>
+      <div style="padding:10px 14px;font-family:var(--mono);font-size:11px;color:var(--tx3);border-bottom:var(--bw) solid var(--bd)">{{ tableCountLabel }}</div>
+      <div data-scrollbox="1" style="overflow:auto;max-height:520px">
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:900px">
+          <thead>
+            <tr>
+              <sc-for list="{{ tableCols }}" as="col" hint-placeholder-count="9">
+                <th scope="col" onClick="{{ col.sort }}" style="{{ col.style }}" title="{{ col.title }}">{{ col.label }}{{ col.arrow }}</th>
+              </sc-for>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ tableRows }}" as="row" hint-placeholder-count="8">
+              <tr style="{{ row.style }}">
+                <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="9">
+                  <td style="{{ cell.style }}" title="{{ cell.title }}">{{ cell.t }}</td>
+                </sc-for>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:12px 14px;display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--tx3);border-top:var(--bw) solid var(--bd)">
+        <span><span style="font-family:var(--mono);color:var(--flag)">L</span> liquidation</span>
+        <span><span style="font-family:var(--mono);color:var(--flag)">C</span> cost basis incomplete</span>
+        <span><span style="font-family:var(--mono);color:var(--flag)">F</span> FX stale, within grace</span>
+        <span style="margin-left:auto;font-family:var(--mono)">ledger_preview[] / schedule_vda[] · every row carries fx_rate and fx_rate_date</span>
+      </div>
+    </section>
+
+    <!-- CA report panel -->
+    <section aria-label="CA report" style="margin-top:var(--sp3);border:var(--bw) solid var(--bd-strong);border-radius:var(--r3);background:var(--s2);padding:20px;display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 420px;min-width:260px">
+        <h2 style="margin:0 0 7px;font-size:15px;font-weight:600">Hand a Chartered Accountant a real document</h2>
+        <p style="margin:0;font-size:12.5px;line-height:1.7;color:var(--tx2);max-width:96ch;text-wrap:pretty">A financial-year-scoped ZIP of seven CSVs: structured trading data and neutral arithmetic totals. No interpretation is named and no liability is asserted. It mirrors the report format Indian exchanges already issue.</p>
+      </div>
+      <button type="button" onClick="{{ openReport }}" style="font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;background:var(--ac);color:var(--ac-tx);border:0;border-radius:var(--r2);padding:13px 20px;cursor:pointer;font-weight:600" style-hover="filter:brightness(1.08)" data-noprint="">Generate CA report</button>
+    </section>
+  </div>
+  </sc-if>
+
+  <!-- ============ J. FOOTER ============ -->
+  <footer style="margin-top:var(--sp7);border-top:var(--bw) solid var(--bd);padding-top:22px;display:grid;gap:14px">
+    <div style="display:grid;gap:6px;font-size:12px;line-height:1.65;color:var(--tx2);max-width:118ch">
+      <div><strong style="color:var(--tx);font-weight:600">Not tax advice.</strong> The law here is unsettled. The only claim made is arithmetic under stated assumptions. Verify every section number and rate with a practising Chartered Accountant.</div>
+      <div><strong style="color:var(--tx);font-weight:600">Read-only.</strong> Public wallet address only; no private key, seed phrase, or API secret is ever requested or accepted.</div>
+    </div>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--tx3)">
+      
+      
+      
+      
+    <span>Built and deployed by Pratham Handa (and a bunch of LLMs) • https://linkedin.com/in/prathamhanda •  https://x.com/AltcoinHumorist</span></div>
+  </footer>
+</main>
+
+
+
+<!-- ============ DOCS DRAWER ============ -->
+<sc-if value="{{ docsOpen }}" hint-placeholder-val="{{ false }}">
+  <div data-noprint="" style="position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end">
+    <div onClick="{{ closeDocs }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+    <aside data-docs-aside="1" role="dialog" aria-modal="true" aria-label="Documentation" ref="{{ drawerRef }}" style="position:relative;width:clamp(420px,46vw,860px);max-width:100vw;height:100%;background:var(--s1);border-left:var(--bw) solid var(--bd-strong);box-shadow:var(--sh2);display:flex;flex-direction:column;animation:hl-slide .18s ease-out">
+      <div style="padding:14px 16px;border-bottom:var(--bw) solid var(--bd);display:grid;gap:11px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:14px;font-weight:600;flex:1;min-width:0">{{ docTitle }}</div>
+          <button type="button" onClick="{{ closeDocs }}" aria-label="Close documentation" style="font-family:var(--mono);font-size:12px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:5px 10px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--neg);color:var(--neg)">Esc ✕</button>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <sc-for list="{{ docTabs }}" as="d" hint-placeholder-count="7">
+            <button type="button" onClick="{{ d.select }}" style="{{ d.style }}" title="{{ d.title }}">{{ d.short }}</button>
+          </sc-for>
+        </div>
+        <input type="search" placeholder="Search within docs…" value="{{ docSearch }}" onInput="{{ onDocSearch }}" aria-label="Search within documentation" style="font-family:var(--mono);font-size:12px;background:var(--s3);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:8px 11px;color:var(--tx)">
+        <sc-if value="{{ hasDocSearch }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--ac)">{{ docSearchSummary }}</div>
+        </sc-if>
+      </div>
+      <div style="flex:1;display:flex;min-height:0">
+        <nav data-docs-rail="1" aria-label="Table of contents" style="flex:0 1 214px;min-width:130px;border-right:var(--bw) solid var(--bd);overflow-y:auto;padding:12px 8px;background:var(--s2)">
+          <sc-for list="{{ toc }}" as="t" hint-placeholder-count="8">
+            <button type="button" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.title }}</button>
+          </sc-for>
+        </nav>
+        <div data-doc-body="1" ref="{{ docBodyRef }}" onScroll="{{ onDocScroll }}" data-scrollbox="1" style="flex:1 1 0;overflow-y:auto;overflow-x:hidden;padding:20px 24px 60vh;min-width:0">
+          {{ docBody }}
+        </div>
+      </div>
+    </aside>
+  </div>
+</sc-if>
+
+<!-- ============ CA REPORT MODAL ============ -->
+<sc-if value="{{ reportOpen }}" hint-placeholder-val="{{ false }}">
+  <div data-noprint="" style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div onClick="{{ closeReport }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6)"></div>
+    <div role="dialog" aria-modal="true" aria-label="Generate CA report" ref="{{ modalRef }}" style="position:relative;width:min(760px,100%);max-height:100%;overflow:auto;background:var(--s1);border:var(--bw) solid var(--bd-strong);border-radius:var(--r3);box-shadow:var(--sh2);animation:hl-rise .16s ease-out">
+      <div style="padding:18px 20px;border-bottom:var(--bw) solid var(--bd);display:flex;gap:12px;align-items:center">
+        <h2 style="margin:0;font-size:15px;font-weight:600;flex:1">CA report · financial-year ZIP</h2>
+        <button type="button" onClick="{{ closeReport }}" aria-label="Close" style="font-family:var(--mono);font-size:12px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:5px 10px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--neg);color:var(--neg)">Esc ✕</button>
+      </div>
+      <div style="padding:18px 20px;display:grid;gap:20px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:10px">Financial year <span style="letter-spacing:0;text-transform:none">· boundaries evaluated in IST</span></div>
+          <sc-if value="{{ hasFys }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ fyChips }}" as="fy" hint-placeholder-count="2">
+                <button type="button" onClick="{{ fy.select }}" aria-pressed="{{ fy.active }}" style="{{ fy.style }}">{{ fy.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noFys }}" hint-placeholder-val="{{ false }}">
+            <div style="border:var(--bw) dashed var(--bd-strong);border-radius:var(--r2);padding:14px;font-size:12.5px;color:var(--tx2)">No completed financial year contains activity for this address, so there is nothing to scope a report to.</div>
+          </sc-if>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);margin-bottom:10px">Manifest preview</div>
+          <div style="border:var(--bw) solid var(--bd);border-radius:var(--r2);overflow:hidden">
+            <sc-for list="{{ manifest }}" as="f" hint-placeholder-count="7">
+              <div style="display:flex;gap:14px;padding:9px 12px;border-bottom:var(--bw) solid var(--bd);align-items:baseline">
+                <span style="font-family:var(--mono);font-size:11.5px;color:var(--tx);flex:0 0 205px">{{ f.name }}</span>
+                <span style="font-size:11.5px;color:var(--tx3);line-height:1.5">{{ f.desc }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <p style="margin:0;font-size:12px;line-height:1.7;color:var(--tx2);text-wrap:pretty">This bundle deliberately names no interpretation and asserts no liability. It carries structured trading data and neutral arithmetic totals, in the format Indian exchanges already issue, so your CA can work from familiar sheets.</p>
+        <sc-if value="{{ hasDownloadState }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ downloadStateStyle }}" aria-live="polite">{{ downloadStateText }}</div>
+        </sc-if>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;border-top:var(--bw) solid var(--bd);padding-top:16px">
+          <button type="button" onClick="{{ downloadZip }}" disabled="{{ zipDisabled }}" style="{{ zipButtonStyle }}">Download ZIP</button>
+          <button type="button" onClick="{{ downloadLedgerCsv }}" style="font-family:var(--mono);font-size:11.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 12px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--ac);color:var(--ac)">Download full ledger CSV</button>
+          <button type="button" onClick="{{ downloadVdaCsv }}" style="font-family:var(--mono);font-size:11.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 12px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--ac);color:var(--ac)">Download Schedule-VDA CSV</button>
+          <button type="button" onClick="{{ printDashboard }}" style="font-family:var(--mono);font-size:11.5px;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:9px 12px;cursor:pointer;color:var(--tx2)" style-hover="border-color:var(--ac);color:var(--ac)">Print / save dashboard as PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<div aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ liveRegion }}</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#50d2c1&quot;,&quot;#97fce4&quot;,&quot;#e0c273&quot;,&quot;#9fa9f0&quot;],&quot;default&quot;:&quot;#50d2c1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+class Component extends DCLogic {
+  /* ---------- CONFIG ---------- */
+  API_BASE = "";          /* single config point: base URL of the FastAPI server */
+  USE_MOCK = true;        /* false -> fetch GET {API_BASE}/api/report?address=… */
+
+  T_ORDER = ["vda", "futures_inr", "speculative", "non_speculative"];
+  T_LABEL = {
+    vda: "OP 1 · VDA transfer, s.115BBH (flat 30%)",
+    futures_inr: "OP 2 · Futures, INR-margined premise (slab)",
+    speculative: "OP 3 · Speculative business (slab, ring-fenced losses)",
+    non_speculative: "OP 4 · Non-speculative business (slab, normal set-off)"
+  };
+  T_SHORT = { vda: "OP 1 VDA", futures_inr: "OP 2 Futures", speculative: "OP 3 Speculative", non_speculative: "OP 4 Non-speculative" };
+  DOC_ANCHOR = { vda: "op-1-vda", futures_inr: "op-2-futures", speculative: "op-3-speculative", non_speculative: "op-4-non-speculative" };
+  LOSS_LABEL = {
+    none: "Losses cannot be set off at all.",
+    ring_fenced_speculative: "Losses set off only against speculative income, carried forward 4 years.",
+    normal_business: "Normal set-off, carried forward 8 years."
+  };
+  EXAMPLE = "0x4964f89307d74519f8302c4b9695f3a80c2098ef";
+
+  state = {
+    address: "", phase: "empty", data: null, err: null,
+    advOpen: false, adv: { as_of: "", onramp_cost: "", salary_income_inr: "", other_head_income_inr: "", refresh: false },
+    compact: false, disclaimerOpen: true, warningsOpen: true,
+    caveatsOpen: {}, checked: {}, gapAnim: 1,
+    tab: "ledger", filter: "", sort: { ledger: { k: "ts_utc", d: 1 }, vda: { k: "sr_no", d: 1 } },
+    docs: { open: false, id: "treatments-guide", search: "", active: "" },
+    report: { open: false, fy: null, fys: null, dl: null },
+    copied: false, live: "", theme: "dark", stepIdx: 0
+  };
+
+  /* ---------- lifecycle ---------- */
+  componentDidMount() {
+    this.applyTheme();
+    this._onKey = (e) => {
+      if (e.key === "Escape") {
+        if (this.state.report.open) this.closeReport();
+        else if (this.state.docs.open) this.closeDocs();
+      }
+      if (e.key === "Tab") this.trapFocus(e);
+    };
+    document.addEventListener("keydown", this._onKey);
+    this.readHash();
+    window.addEventListener("hashchange", () => this.readHash());
+  }
+  componentDidUpdate(p, s) {
+    if (this.props.theme !== undefined && this.props.theme !== this._lastTheme) this.applyTheme();
+    if (this.props.accent !== this._lastAccent) this.applyTheme();
+  }
+  applyTheme() {
+    const t = this.props.theme || this.state.theme;
+    this._lastTheme = this.props.theme;
+    this._lastAccent = this.props.accent;
+    const root = document.documentElement;
+    root.setAttribute("data-theme", t);
+    if (this.props.accent) root.style.setProperty("--ac", this.props.accent);
+  }
+  trapFocus(e) {
+    const host = this.state.report.open ? this._modal : (this.state.docs.open ? this._drawer : null);
+    if (!host) return;
+    const f = host.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  /* ---------- formatting ---------- */
+  isNum(v) { return typeof v === "number" && isFinite(v); }
+  dash() { return "\u2014"; }
+  inr(v, opts) {
+    if (!this.isNum(v)) return this.dash();
+    const neg = v < 0, a = Math.abs(v);
+    const compact = (opts && opts.compact !== undefined) ? opts.compact : this.state.compact;
+    let s;
+    if (compact) {
+      if (a >= 1e7) s = "\u20b9" + (a / 1e7).toFixed(2) + " Cr";
+      else if (a >= 1e5) s = "\u20b9" + (a / 1e5).toFixed(2) + " L";
+      else s = "\u20b9" + a.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      s = "\u20b9" + a.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return neg ? "(\u2212" + s + ")" : s;
+  }
+  inrFull(v) { return this.isNum(v) ? (v < 0 ? "minus " : "") + "\u20b9" + Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " (INR)" : "value not available"; }
+  usd(v) { return this.isNum(v) ? (v < 0 ? "(\u2212$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (v < 0 ? ")" : "") : this.dash(); }
+  pct(v) { return this.isNum(v) ? (v * 100).toFixed(v * 100 % 1 === 0 ? 0 : 2).replace(/\.00$/, "") + "%" : this.dash(); }
+  int(v) { return this.isNum(v) ? v.toLocaleString("en-IN") : this.dash(); }
+  short(a) { return a && a.length > 12 ? a.slice(0, 6) + "\u2026" + a.slice(-4) : (a || this.dash()); }
+  ts(v) { return v ? String(v).replace("T", " ").replace("Z", "") + " UTC" : this.dash(); }
+
+  /* ---------- MOCK ---------- */
+  get MOCK() {
+    if (this._mock) return this._mock;
+    const pos = [1240000, 860000, 610000, 540000, 420000, 380000, 310000, 260000, 200000];
+    const neg = [-980000, -720000, -540000, -430000, -290000, -180000];
+    const assets = ["ETH", "BTC", "SOL", "HYPE", "ARB"];
+    const inc = [];
+    for (let i = 0; i < 15; i++) inc.push(i % 5 === 1 || i % 5 === 3 ? neg[Math.min(neg.length - 1, Math.floor(i / 2.5))] : pos[Math.min(pos.length - 1, Math.floor(i / 1.7))]);
+    const vda = [];
+    for (let i = 0; i < 15; i++) {
+      const income = inc[i];
+      const m = 6 + Math.floor(i * 0.65), mm = ((m - 1) % 12) + 1, yy = m > 12 ? 2025 : 2024;
+      const d1 = String(3 + (i * 3) % 22).padStart(2, "0"), d2 = String(5 + (i * 3 + 2) % 22).padStart(2, "0");
+      const consideration = Math.abs(income) * 3.2 + 480000;
+      vda.push({
+        sr_no: i + 1, asset: assets[i % assets.length], episode_id: assets[i % assets.length] + "-" + (i + 3),
+        date_of_acquisition: yy + "-" + String(mm).padStart(2, "0") + "-" + d1,
+        date_of_transfer: yy + "-" + String(mm).padStart(2, "0") + "-" + d2,
+        consideration_inr: Math.round(consideration), cost_of_acquisition_inr: Math.round(consideration - income),
+        income_inr: income, is_liquidation: i === 4 || i === 11, cost_basis_incomplete: i === 9
+      });
+    }
+    const cats = ["realized_pnl", "funding", "fee", "deposit", "withdrawal"];
+    const ledger = [];
+    for (let i = 0; i < 22; i++) {
+      const c = cats[i % 5], asset = assets[i % assets.length];
+      const usd = c === "realized_pnl" ? (i % 3 === 0 ? -1420.55 - i * 31 : 2380.4 + i * 47) : c === "funding" ? -18.4 - i : c === "fee" ? -9.75 - i * 0.4 : c === "deposit" ? 5000 : -3500;
+      const fx = 83.12 + (i % 9) * 0.21;
+      const m = 6 + Math.floor(i * 0.42), mm = ((m - 1) % 12) + 1, yy = m > 12 ? 2025 : 2024;
+      const day = String(2 + (i * 5) % 26).padStart(2, "0");
+      ledger.push({
+        event_id: "ev_" + (100340 + i * 7), ts_utc: yy + "-" + String(mm).padStart(2, "0") + "-" + day + "T0" + (i % 9) + ":2" + (i % 9) + ":10Z",
+        category: c, asset: asset, asset_class: c === "deposit" || c === "withdrawal" ? "stablecoin" : "perp",
+        episode_id: c === "realized_pnl" ? asset + "-" + (i + 3) : null,
+        amount_usd: usd, fx_rate: Number(fx.toFixed(4)), fx_rate_date: yy + "-" + String(mm).padStart(2, "0") + "-" + day,
+        amount_inr: Math.round(usd * fx * 100) / 100,
+        gross_consideration_inr: c === "realized_pnl" ? Math.round(Math.abs(usd) * fx * 3.1) : c === "deposit" || c === "withdrawal" ? Math.round(Math.abs(usd) * fx) : 0,
+        is_liquidation: i === 6, cost_basis_incomplete: i === 13, fx_stale_grace: i === 3 || i === 18
+      });
+    }
+    const refs = { vda: { 1961: ["s.115BBH", "s.2(47A)"], 2025: ["s.194"] }, futures_inr: { 1961: ["s.28", "s.43(5)(e)"], 2025: ["s.61"] }, speculative: { 1961: ["s.28", "s.43(5)", "s.73"], 2025: ["s.61", "s.112"] }, non_speculative: { 1961: ["s.28", "s.71", "s.72"], 2025: ["s.61", "s.108"] } };
+    const cav = {
+      vda: ["s.115BBH allows no deduction other than cost of acquisition; funding paid and venue fees are treated as non-deductible under this reading.", "Loss from one VDA cannot be set off against gain from another, and cannot be carried forward.", "Whether a cash-settled perpetual is a 'virtual digital asset' within s.2(47A) has not been tested by any Indian court or ruling."],
+      futures_inr: ["This reading presumes settlement in INR on a recognised stock exchange, which is not the case for this account.", "s.43(5)(e) excludes eligible derivative transactions from the definition of speculative business only where the exchange is recognised under Indian law.", "Shown so the comparison is complete, not because it is available."],
+      speculative: ["Speculative business loss can be set off only against speculative business income, and is carried forward 4 years.", "Whether an offshore perpetual is a speculative transaction turns on the absence of delivery, which is arguable both ways.", "Presumptive taxation provisions have not been applied."],
+      non_speculative: ["Business loss can be set off against income under other heads in the same year, except salary.", "Carry-forward is 8 years and requires the return to be filed by the due date.", "Books of account and, above the threshold, a tax audit would be expected under this reading."]
+    };
+    const base = (over) => Object.assign({
+      taxable_base_inr: 1680000, rate_basis: "slab", tax_before_cess_inr: 136000, surcharge_inr: 0, cess_inr: 5440, total_tax_inr: 141440,
+      vda_gross_base_inr: null, vda_net_base_inr: null, vda_gross_vs_net_gap_inr: null,
+      current_year_setoff_inr: 3140000, carry_forward_inr: 0, carry_forward_years: 8,
+      turnover_inr: 124638500, audit_flag: true, tds_expected_inr: 16800, tds_expected_on_pnl_inr: 16800,
+      tds_expected_on_legs_inr: 184300, tds_actually_deducted_inr: 0, premise: "live"
+    }, over);
+    this._mock = {
+      meta: {
+        address: this.EXAMPLE, event_range: "2024-06-11 to 2025-03-28", generated_utc: "2026-07-26 09:14 UTC",
+        fx_convention: "FBIL/RBI USD-INR reference rate, previous business day",
+        cost_basis_convention: "average_entry_within_episode", as_of: null
+      },
+      empty: false,
+      warnings: ["spot fills excluded (perpetuals only in v1)", "fill history may be truncated at the ~10k-fill API wall"],
+      treatments: {
+        vda: base({
+          treatment: "vda", rate_basis: "flat_30", taxable_base_inr: 4820000, tax_before_cess_inr: 1446000, surcharge_inr: 0, cess_inr: 57840, total_tax_inr: 1503840,
+          vda_gross_base_inr: 4820000, vda_net_base_inr: 1680000, vda_gross_vs_net_gap_inr: 3140000,
+          loss_treatment: "none", current_year_setoff_inr: 0, carry_forward_inr: 0, carry_forward_years: null,
+          tds_expected_inr: 48200, tds_expected_on_pnl_inr: 48200, section_refs: refs.vda, caveats: cav.vda, line_items: []
+        }),
+        futures_inr: base({ treatment: "futures_inr", premise: "counterfactual", loss_treatment: "normal_business", carry_forward_years: 8, section_refs: refs.futures_inr, caveats: cav.futures_inr, line_items: [] }),
+        speculative: base({ treatment: "speculative", loss_treatment: "ring_fenced_speculative", carry_forward_years: 4, section_refs: refs.speculative, caveats: cav.speculative, line_items: [] }),
+        non_speculative: base({ treatment: "non_speculative", loss_treatment: "normal_business", carry_forward_years: 8, salary_income_inr: 0, salary_income_after_setoff_inr: 0, other_head_income_inr: 0, other_head_income_after_setoff_inr: 0, section_refs: refs.non_speculative, caveats: cav.non_speculative, line_items: [] })
+      },
+      tds: {
+        tds_rate: 0.01,
+        tds_expected_on_pnl_by_reading: { vda: 48200, futures_inr: 16800, speculative: 16800, non_speculative: 16800 },
+        tds_expected_on_legs_inr: 184300, tds_leg_count: 26, tds_actually_deducted_on_venue_inr: 0,
+        thresholds_inr: { specified_person: 50000, other: 10000 },
+        section_refs: { 1961: ["s.194S"], 2025: ["s.393"] },
+        caveats: ["s.194S applies where the payer is a resident and the transfer is of a virtual digital asset; a peer-to-peer offshore venue has no Indian deductor.", "TDS withheld by an Indian exchange on your USDC purchase is creditable and should appear in Form 26AS.", "Threshold values apply per financial year, per payer."]
+      },
+      cross_cutting: {
+        limitations_top: [
+          "The engine sees on-Hyperliquid activity only. If you sent INR to an Indian exchange to buy the USDC that funded this account, that acquisition leg is invisible here, so VDA-reading numbers cover the Hyperliquid leg alone unless you supply onramp_cost.",
+          "Perpetuals only in v1: spot fills, staking and airdrops on the venue are excluded from every reading.",
+          "Fill history from the public API may be truncated at roughly 10,000 fills, in which case earlier episodes are reconstructed from aggregate ledger updates and marked cost_basis_incomplete.",
+          "No reading here has been tested in an Indian court or by a CBDT circular. Section numbers under the 2025 Act are mapped by correspondence, not by judicial confirmation."
+        ],
+        onramp_boundary: { onramp_cost_supplied: false, note: "USDC entered this account as a deposit. The engine cannot see what you paid in INR to acquire it, so under the VDA reading the cost of acquisition of the stablecoin leg is unknown and is not assumed. Supply onramp_cost to extend the chain back to your Indian-exchange purchase." },
+        ais_asymmetry_note: "Your Annual Information Statement will show the INR that left your bank for the Indian exchange, and the TDS that exchange deducted. It will show nothing that happened on Hyperliquid. Expect the AIS totals and these totals to disagree, and expect to explain the difference rather than reconcile it.",
+        capital_gains_excluded_note: "No capital-gains computation is offered. A cash-settled perpetual has no delivery of a capital asset, so every reading here sits in business income or in s.115BBH, and Schedule CG is left alone.",
+        disclosure_checklist: ["Schedule VDA, one row per closed episode", "Schedule FA, foreign account and asset disclosure", "Schedule AL where total income exceeds the threshold", "Business income schedule and balance sheet, if filing under OP 3 or OP 4", "Form 26AS and AIS reconciliation note for the on-ramp TDS"],
+        has_stablecoin_legs: true,
+        non_hyperliquid_asset_classes_detected: ["stablecoin"],
+        assumptions_box: {
+          vda_flat_rate: 0.30, cess_rate: 0.04, slab_regime: "new_115BAC", vda_loss_scope: "no_set_off_at_all",
+          funding_treatment: "expense_when_paid", fee_deductible_slab: true, fee_deductible_vda: false,
+          include_stablecoin_legs: true, treat_settlement_as_inr: false, tds_rate: 0.01,
+          audit_turnover_threshold_inr: 100000000, speculative_carry_forward_years: 4, business_carry_forward_years: 8,
+          salary_income_inr: 0, other_head_income_inr: 0
+        }
+      },
+      ledger_row_count: 412,
+      ledger_counts: { realized_pnl: 118, funding: 268, fee: 16, deposit: 6, withdrawal: 4 },
+      ledger_preview: ledger,
+      schedule_vda: vda
+    };
+    return this._mock;
+  }
+
+  /* ---------- api ---------- */
+  api = {
+    report: async (params) => {
+      const q = new URLSearchParams();
+      Object.keys(params).forEach(k => { if (params[k] !== "" && params[k] !== null && params[k] !== undefined && params[k] !== false) q.set(k, String(params[k])); });
+      const r = await fetch(this.API_BASE + "/api/report?" + q.toString());
+      let body = null; try { body = await r.json(); } catch (e) { body = null; }
+      if (!r.ok) { const err = new Error((body && (body.detail || body.message)) || ("HTTP " + r.status)); err.status = r.status; err.body = body; throw err; }
+      return body;
+    },
+    fys: async (address) => {
+      const r = await fetch(this.API_BASE + "/api/ca-report/fys?address=" + encodeURIComponent(address));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    },
+    caReportUrl: (address, fy) => this.API_BASE + "/api/ca-report?address=" + encodeURIComponent(address) + "&fy=" + encodeURIComponent(fy)
+  };
+
+  /* ---------- actions ---------- */
+  validity() {
+    const a = this.state.address.trim();
+    if (!a) return "empty";
+    return /^0x[0-9a-fA-F]{40}$/.test(a) ? "ok" : "bad";
+  }
+  onAddressInput = (e) => this.setState({ address: e.target.value });
+  onAddressKeyDown = (e) => { if (e.key === "Enter") this.analyze(); };
+  loadExample = () => this.setState({ address: this.EXAMPLE });
+  toggleAdvanced = () => this.setState(s => ({ advOpen: !s.advOpen }));
+  setAdv(k, v) { this.setState(s => ({ adv: Object.assign({}, s.adv, { [k]: v }) })); }
+  onAsOf = (e) => this.setAdv("as_of", e.target.value);
+  onOnramp = (e) => this.setAdv("onramp_cost", e.target.value);
+  onSalary = (e) => this.setAdv("salary_income_inr", e.target.value);
+  onOther = (e) => this.setAdv("other_head_income_inr", e.target.value);
+  onRefresh = (e) => this.setAdv("refresh", e.target.checked);
+  toggleCompact = () => this.setState(s => ({ compact: !s.compact }));
+  toggleDisclaimer = () => this.setState(s => ({ disclaimerOpen: !s.disclaimerOpen }));
+  toggleWarnings = () => this.setState(s => ({ warningsOpen: !s.warningsOpen }));
+  toggleTheme = () => { const t = (this.props.theme || this.state.theme) === "dark" ? "light" : "dark"; this.setState({ theme: t }, () => { document.documentElement.setAttribute("data-theme", t); }); };
+  copyAddr = () => {
+    const a = this.state.data && this.state.data.meta ? this.state.data.meta.address : this.state.address;
+    if (navigator.clipboard) navigator.clipboard.writeText(a);
+    this.setState({ copied: true });
+    setTimeout(() => this.setState({ copied: false }), 1400);
+  };
+
+  cancel = () => { this._cancelled = true; if (this._timer) clearInterval(this._timer); this.setState({ phase: "empty", stepIdx: 0 }); };
+
+  analyze = () => {
+    if (this.validity() !== "ok") { this.setState({ phase: "error", err: { kind: "invalid" } }); return; }
+    this._cancelled = false;
+    this.setState({ phase: "loading", err: null, stepIdx: 0, live: "Analysis started" });
+    if (this._timer) clearInterval(this._timer);
+    this._timer = setInterval(() => this.setState(s => ({ stepIdx: Math.min(5, s.stepIdx + 1) })), 380);
+    const adv = this.state.adv;
+    const params = { address: this.state.address.trim(), refresh: adv.refresh, as_of: adv.as_of, onramp_cost: adv.onramp_cost, salary_income_inr: adv.salary_income_inr, other_head_income_inr: adv.other_head_income_inr };
+    const done = (data) => {
+      if (this._cancelled) return;
+      clearInterval(this._timer);
+      if (data && data.empty) { this.setState({ phase: "error", err: { kind: "empty" }, data: null, live: "No activity found" }); return; }
+      this.setState({ phase: "ready", data: data, gapAnim: 0, live: "Results ready. Four readings computed." }, () => this.animateGap());
+    };
+    if (this.USE_MOCK) {
+      const patched = JSON.parse(JSON.stringify(this.MOCK));
+      patched.meta.address = params.address;
+      if (adv.as_of) { patched.meta.as_of = adv.as_of; }
+      if (adv.onramp_cost !== "") {
+        patched.cross_cutting.onramp_boundary.onramp_cost_supplied = true;
+        patched.cross_cutting.assumptions_box.onramp_cost_inr = Number(adv.onramp_cost);
+        patched.cross_cutting.onramp_boundary.note = "onramp_cost was supplied, so the VDA reading covers the full chain from your INR purchase through to each Hyperliquid episode.";
+      }
+      if (adv.salary_income_inr !== "") {
+        const sal = Number(adv.salary_income_inr);
+        patched.treatments.non_speculative.salary_income_inr = sal;
+        patched.treatments.non_speculative.salary_income_after_setoff_inr = sal;
+        patched.cross_cutting.assumptions_box.salary_income_inr = sal;
+      }
+      if (adv.other_head_income_inr !== "") {
+        const oh = Number(adv.other_head_income_inr);
+        patched.treatments.non_speculative.other_head_income_inr = oh;
+        patched.treatments.non_speculative.other_head_income_after_setoff_inr = oh;
+        patched.cross_cutting.assumptions_box.other_head_income_inr = oh;
+      }
+      setTimeout(() => done(patched), 2100);
+    } else {
+      this.api.report(params).then(done).catch(e => {
+        if (this._cancelled) return;
+        clearInterval(this._timer);
+        const st = e.status;
+        const kind = st === 400 ? "invalid" : st === 422 ? "fx" : st === 500 ? "server" : "network";
+        this.setState({ phase: "error", err: { kind: kind, msg: e.message }, live: "Request failed" });
+      });
+    }
+  };
+  animateGap() {
+    const t0 = performance.now(), dur = 1000;
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      this.setState({ gapAnim: e });
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------- docs ---------- */
+  get DOCS() {
+    if (this._docs) return this._docs;
+    const p = (t) => "<p>" + t + "</p>";
+    const mk = (id, level, title, html) => ({ id, level, title, html });
+    this._docs = [
+      { id: "treatments-guide", title: "Treatments guide: the four readings", short: "Treatments", sections: [
+        mk("overview", 1, "Overview", p("Indian law does not yet say what a USDC-settled perpetual future is. Four readings are defensible on the text as it stands. This engine computes all four and ranks none. Where two Acts are in play, section numbers are given for both the Income-tax Act, 1961 and the Income-tax Act, 2025.") + p("Read every reading before you pick one. The arithmetic differs by an order of magnitude between them, and the difference is almost entirely about whether losses are allowed to meet gains.")),
+        mk("op-1-vda", 2, "OP 1 · VDA transfer, s.115BBH", p("Treats each closed episode as the transfer of a virtual digital asset. Income is taxed at a flat 30% plus cess. No deduction is allowed other than cost of acquisition, and loss from one VDA cannot be set off against gain from another or carried forward.") + p("The premise being tested: that a cash-settled contract with no underlying delivery still falls inside the s.2(47A) definition. Nothing decided so far confirms or denies it.") + "<pre>taxable_base = sum(income_inr where income_inr &gt; 0)\ntax = 0.30 * taxable_base\ntotal = tax + surcharge + 0.04 * tax</pre>"),
+        mk("op-2-futures", 2, "OP 2 · Futures, INR-margined premise", p("Treats the activity as trading in derivatives on a recognised stock exchange, settled in INR, taxed at slab rates as non-speculative business income.") + p("For a Hyperliquid account this premise is counterfactual: settlement is in USDC on an offshore venue, and no recognised Indian exchange is involved. The reading is computed anyway so the comparison is complete.")),
+        mk("op-3-speculative", 2, "OP 3 · Speculative business", p("Treats the activity as a speculative business under s.43(5), because contracts are settled otherwise than by delivery. Slab rates apply. Losses are ring-fenced: set off only against speculative income, carried forward four years.")),
+        mk("op-4-non-speculative", 2, "OP 4 · Non-speculative business", p("Treats the activity as an ordinary business. Slab rates apply, normal set-off is available against other heads in the same year except salary, and losses carry forward eight years subject to timely filing.") + p("Salary is protected by statute. Where you supply salary_income_inr, the engine shows it before and after set-off and leaves it unchanged.")),
+        mk("tds-doc", 2, "TDS", p("s.194S requires a resident payer to deduct 1% on consideration for the transfer of a virtual digital asset. An offshore peer-to-peer venue has no Indian deductor, so expected TDS on venue activity is a computed figure, not a withheld one.")),
+        mk("cross-cutting-caveats", 2, "Cross-cutting caveats", p("Every reading shares the same reconstruction, the same FX series and the same episode boundaries. Disagreement between readings is legal, not arithmetical.")) ] },
+      { id: "tax-act-reading", title: "Reading the Income-tax Act", short: "Act", sections: [
+        mk("act-1961", 1, "The 1961 Act", p("Sections cited across the four readings: s.2(47A) definition of virtual digital asset, s.115BBH special rate, s.28 profits of business, s.43(5) speculative transaction, s.71 and s.72 set-off and carry-forward, s.73 speculation losses, s.194S deduction at source.")),
+        mk("act-2025", 1, "The 2025 Act", p("The 2025 Act renumbers rather than rewrites most of what matters here. Mappings shown in the pills are by correspondence of text, not by judicial confirmation, and should be checked before they are relied on in a filing.")),
+        mk("act-gaps", 2, "Where the text runs out", p("Neither Act addresses cash-settled offshore perpetuals directly. That silence is the reason this tool exists.")) ] },
+      { id: "methodology", title: "Methodology: cost basis, FX, episodes", short: "Method", sections: [
+        mk("episodes", 1, "Episode reconstruction", p("An episode opens when net position in an asset moves away from zero and closes when it returns to zero. Cost basis within an episode is the average entry price weighted by size. Partial closes realise proportionally.")),
+        mk("fx", 1, "FX convention", p("Each leg is converted at the FBIL/RBI USD-INR reference rate for the previous business day. Where the series has a gap inside the grace window, the last published rate is carried forward and the row is flagged fx_stale_grace. Where the series does not cover the period at all, the engine refuses to produce a number and returns a 422 rather than a partial figure.")),
+        mk("rounding", 2, "Rounding", p("Arithmetic is carried at full precision and rounded only for display. Two decimals throughout; no intermediate rounding.")) ] },
+      { id: "engine-architecture", title: "Engine architecture and layer discipline", short: "Engine", sections: [
+        mk("layers", 1, "Layers", p("fetch, load, reconstruct, fx, interpret, present. Each layer may read only from the layer below it. The interpret layer is the only place a legal opinion may appear, and it must appear four times.")),
+        mk("determinism", 2, "Determinism", p("Given the same raw history, the same FX series and the same assumptions, the engine returns byte-identical output. Caching is an optimisation, never a source of difference.")) ] },
+      { id: "ca-report", title: "CA report: sheet-by-sheet", short: "CA report", sections: [
+        mk("sheets", 1, "The seven sheets", p("00_summary, 01_futures_trades, 02_funding, 03_fees, 04_cashflows, 05_open_positions, 06_assumptions_and_notes. Scoped to one financial year, boundaries evaluated in IST.")),
+        mk("neutrality", 2, "Why it names no reading", p("The ZIP is the artifact a Chartered Accountant works from. It carries data and arithmetic totals. Choosing the head of income is their professional act, not this tool's.")) ] },
+      { id: "data-genre", title: "Indian-exchange report genre (comparison)", short: "Genre", sections: [
+        mk("genre", 1, "What the exchanges issue", p("Indian exchanges issue a per-financial-year statement with trade lists, fee summaries, TDS deducted and a totals sheet. The CA report deliberately mirrors that shape so nothing has to be explained twice.")),
+        mk("differences", 2, "Where this differs", p("Two columns are added that an exchange statement cannot carry: the FX rate used and its date. Traceability of the conversion is the point of the file.")) ] },
+      { id: "limitations", title: "Known limitations and open questions", short: "Limits", sections: [
+        mk("boundary", 1, "The on-ramp boundary", p("The engine's field of view starts at the first deposit into the Hyperliquid account. Everything before that, including the INR purchase and any TDS deducted on it, is invisible unless supplied.")),
+        mk("open", 1, "Open questions", p("Whether a perpetual is a VDA. Whether funding paid is an expense or a cost of acquisition. Whether the 2025 Act mappings hold. None of these has an authoritative answer today.")) ] }
+    ];
+    return this._docs;
+  }
+  openDocs = (docId, anchor) => {
+    this._lastFocus = document.activeElement;
+    this.setState(s => ({ docs: Object.assign({}, s.docs, { open: true, id: docId || s.docs.id, active: anchor || "" }) }), () => {
+      if (anchor) this.scrollToSection(anchor);
+      if (history.replaceState) history.replaceState(null, "", "#docs/" + (docId || this.state.docs.id) + (anchor ? "/" + anchor : ""));
+      if (this._drawer) { const f = this._drawer.querySelector("button"); if (f) f.focus(); }
+    });
+  };
+  openDocsHome = () => this.openDocs("treatments-guide", "overview");
+  openDocsTreatments = () => this.openDocs("treatments-guide", "overview");
+  openDocsMethodology = () => this.openDocs("methodology", "episodes");
+  openDocsLimitations = () => this.openDocs("limitations", "boundary");
+  openDocsFx = () => this.openDocs("methodology", "fx");
+  openDocsTds = () => this.openDocs("treatments-guide", "tds-doc");
+  openAbout = () => this.openDocs("engine-architecture", "layers");
+  closeDocs = () => {
+    this.setState(s => ({ docs: Object.assign({}, s.docs, { open: false }) }), () => {
+      if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+      if (this._lastFocus && this._lastFocus.focus) this._lastFocus.focus();
+    });
+  };
+  scrollToSection(id) {
+    requestAnimationFrame(() => {
+      if (!this._body) return;
+      const el = this._body.querySelector('[data-anchor="' + id + '"]');
+      if (el) this._body.scrollTop = el.offsetTop - this._body.offsetTop - 8;
+      this.setState(s => ({ docs: Object.assign({}, s.docs, { active: id }) }));
+    });
+  }
+  onDocSearch = (e) => this.setState(s => ({ docs: Object.assign({}, s.docs, { search: e.target.value }) }));
+  onDocScroll = () => {
+    if (!this._body) return;
+    const marks = this._body.querySelectorAll("[data-anchor]");
+    let cur = "";
+    marks.forEach(m => { if (m.offsetTop - this._body.offsetTop - 24 <= this._body.scrollTop) cur = m.getAttribute("data-anchor"); });
+    if (cur && cur !== this.state.docs.active) this.setState(s => ({ docs: Object.assign({}, s.docs, { active: cur }) }));
+  };
+  readHash() {
+    const h = location.hash || "";
+    if (h.indexOf("#docs/") === 0) {
+      const parts = h.slice(6).split("/");
+      this.openDocs(parts[0], parts[1] || "");
+    }
+  }
+  copySectionLink(docId, id) {
+    const url = location.origin + location.pathname + "#docs/" + docId + "/" + id;
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
+  }
+
+  /* ---------- report modal ---------- */
+  openReport = () => {
+    this._lastFocus = document.activeElement;
+    const addr = (this.state.data && this.state.data.meta && this.state.data.meta.address) || this.state.address.trim();
+    this.setState(s => ({ report: { open: true, fy: s.report.fy, fys: s.report.fys, dl: null } }), () => {
+      if (this._modal) { const f = this._modal.querySelector("button"); if (f) f.focus(); }
+      if (this.state.report.fys) return;
+      if (this.USE_MOCK) this.setState(s => ({ report: Object.assign({}, s.report, { fys: ["2025-26", "2024-25"], fy: "2025-26" }) }));
+      else if (addr) this.api.fys(addr).then(r => this.setState(s => ({ report: Object.assign({}, s.report, { fys: r.fys || [], fy: (r.fys || [])[0] || null }) }))).catch(() => this.setState(s => ({ report: Object.assign({}, s.report, { fys: [] }) })));
+      else this.setState(s => ({ report: Object.assign({}, s.report, { fys: [] }) }));
+    });
+  };
+  closeReport = () => this.setState(s => ({ report: Object.assign({}, s.report, { open: false }) }), () => { if (this._lastFocus && this._lastFocus.focus) this._lastFocus.focus(); });
+  downloadZip = () => {
+    const addr = (this.state.data && this.state.data.meta && this.state.data.meta.address) || this.state.address.trim();
+    const fy = this.state.report.fy;
+    if (!fy) return;
+    this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "pending", t: "Building " + fy + " bundle…" } }) }));
+    if (this.USE_MOCK) {
+      setTimeout(() => this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "ok", t: "Bundle ready. With USE_MOCK = false this downloads hl-tax-" + fy + ".zip from /api/ca-report." } }) })), 1100);
+      return;
+    }
+    fetch(this.api.caReportUrl(addr, fy)).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); }).then(b => {
+      this.saveBlob(b, "hl-tax-" + addr.slice(0, 8) + "-" + fy + ".zip");
+      this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "ok", t: "Downloaded hl-tax-" + fy + ".zip" } }) }));
+    }).catch(e => this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "err", t: "Download failed: " + e.message } }) })));
+  };
+  saveBlob(blob, name) {
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  csv(cols, rows) {
+    const esc = (v) => { const s = v === null || v === undefined ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    return cols.join(",") + "\n" + rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
+  }
+  downloadLedgerCsv = () => {
+    const d = this.state.data; if (!d) return;
+    const cols = ["event_id", "ts_utc", "category", "asset", "asset_class", "episode_id", "amount_usd", "fx_rate", "fx_rate_date", "amount_inr", "gross_consideration_inr", "is_liquidation", "cost_basis_incomplete", "fx_stale_grace"];
+    this.saveBlob(new Blob([this.csv(cols, d.ledger_preview || [])], { type: "text/csv" }), "ledger.csv");
+  };
+  downloadVdaCsv = () => {
+    const d = this.state.data; if (!d) return;
+    const cols = ["sr_no", "asset", "episode_id", "date_of_acquisition", "date_of_transfer", "consideration_inr", "cost_of_acquisition_inr", "income_inr", "is_liquidation", "cost_basis_incomplete"];
+    this.saveBlob(new Blob([this.csv(cols, d.schedule_vda || [])], { type: "text/csv" }), "schedule_vda.csv");
+  };
+  downloadTableCsv = () => { if (this.state.tab === "ledger") this.downloadLedgerCsv(); else this.downloadVdaCsv(); };
+  printDashboard = () => { this.closeReport(); setTimeout(() => window.print(), 220); };
+  jumpToOnramp = () => {
+    this.setState({ advOpen: true }, () => {
+      const el = document.getElementById("onramp-cost-field");
+      if (el) { const y = el.getBoundingClientRect().top + window.pageYOffset - 140; window.scrollTo({ top: y, behavior: "smooth" }); const i = el.querySelector("input"); if (i) setTimeout(() => i.focus(), 420); }
+    });
+  };
+
+  /* ---------- table helpers ---------- */
+  LEDGER_COLS = [
+    { k: "ts_utc", label: "ts_utc", kind: "t" }, { k: "category", label: "category", kind: "t" }, { k: "asset", label: "asset", kind: "t" },
+    { k: "asset_class", label: "asset_class", kind: "t" }, { k: "episode_id", label: "episode_id", kind: "t" },
+    { k: "amount_usd", label: "amount_usd", kind: "usd" }, { k: "fx_rate", label: "fx_rate", kind: "n" }, { k: "fx_rate_date", label: "fx_rate_date", kind: "t" },
+    { k: "amount_inr", label: "amount_inr", kind: "inr" }, { k: "gross_consideration_inr", label: "gross_consideration_inr", kind: "inr" }, { k: "flags", label: "flags", kind: "flags" }
+  ];
+  VDA_COLS = [
+    { k: "sr_no", label: "sr_no", kind: "n" }, { k: "asset", label: "asset", kind: "t" }, { k: "episode_id", label: "episode_id", kind: "t" },
+    { k: "date_of_acquisition", label: "date_of_acquisition", kind: "t" }, { k: "date_of_transfer", label: "date_of_transfer", kind: "t" },
+    { k: "consideration_inr", label: "consideration_inr", kind: "inr" }, { k: "cost_of_acquisition_inr", label: "cost_of_acquisition_inr", kind: "inr" },
+    { k: "income_inr", label: "income_inr", kind: "inr" }, { k: "flags", label: "flags", kind: "flags" }
+  ];
+  flagsOf(r) {
+    let f = "";
+    if (r.is_liquidation) f += "L";
+    if (r.cost_basis_incomplete) f += "C";
+    if (r.fx_stale_grace) f += "F";
+    return f;
+  }
+  onFilter = (e) => this.setState({ filter: e.target.value });
+  selectTab(t) { this.setState({ tab: t, filter: "" }); }
+  sortBy(k) {
+    const tab = this.state.tab;
+    this.setState(s => {
+      const cur = s.sort[tab];
+      const next = { k: k, d: cur.k === k ? -cur.d : 1 };
+      return { sort: Object.assign({}, s.sort, { [tab]: next }) };
+    });
+  }
+
+  /* ---------- render values ---------- */
+  renderVals() {
+    const S = this.state, D = S.data, DASH = this.dash();
+    const V = {};
+    const btnBase = "font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:var(--r2);cursor:pointer;padding:16px 26px;font-weight:600;border:0;";
+
+    /* config / footer */
+    V.dataSourceLabel = this.USE_MOCK ? "data source · MOCK_RESPONSE (USE_MOCK = true)" : "data source · live /api/report";
+    V.themeGlyph = (this.props.theme || S.theme) === "dark" ? "\u25d1" : "\u25d0";
+    V.liveRegion = S.live;
+    V.labelList = this.T_ORDER.map(k => this.T_LABEL[k]);
+
+    /* header / disclaimer */
+    V.disclaimerOpen = S.disclaimerOpen; V.disclaimerClosed = !S.disclaimerOpen;
+    V.disclaimerToggleLabel = S.disclaimerOpen ? "Collapse" : "Expand";
+    V.toggleDisclaimer = this.toggleDisclaimer; V.toggleTheme = this.toggleTheme;
+    V.openDocsHome = this.openDocsHome; V.openDocsTreatments = this.openDocsTreatments;
+    V.openDocsMethodology = this.openDocsMethodology; V.openDocsLimitations = this.openDocsLimitations;
+    V.openDocsFx = this.openDocsFx; V.openDocsTds = this.openDocsTds; V.openAbout = this.openAbout;
+    V.openReport = this.openReport;
+
+    /* input console */
+    const val = this.validity();
+    V.address = S.address;
+    V.onAddressInput = this.onAddressInput; V.onAddressKeyDown = this.onAddressKeyDown; V.loadExample = this.loadExample;
+    V.validityLabel = val === "empty" ? "0x + 40 hex" : val === "ok" ? "valid" : "invalid format";
+    V.validityStyle = "position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:" + (val === "ok" ? "var(--pos)" : val === "bad" ? "var(--neg)" : "var(--tx3)");
+    V.analyzeDisabled = S.phase === "loading";
+    V.analyzeLabel = S.phase === "loading" ? "Analyzing…" : "Analyze";
+    V.analyzeStyle = btnBase + (S.phase === "loading"
+      ? "background:var(--s3);color:var(--tx3);cursor:progress;"
+      : "background:var(--ac);color:var(--ac-tx);");
+    V.analyze = this.analyze; V.cancel = this.cancel;
+    V.advancedOpen = S.advOpen; V.toggleAdvanced = this.toggleAdvanced;
+    V.advancedCaretStyle = "display:inline-block;transition:transform .15s;transform:rotate(" + (S.advOpen ? 90 : 0) + "deg);color:var(--ac)";
+    V.advAsOf = S.adv.as_of; V.advOnramp = S.adv.onramp_cost; V.advSalary = S.adv.salary_income_inr; V.advOther = S.adv.other_head_income_inr; V.advRefresh = S.adv.refresh;
+    V.onAsOf = this.onAsOf; V.onOnramp = this.onOnramp; V.onSalary = this.onSalary; V.onOther = this.onOther; V.onRefresh = this.onRefresh;
+    V.showEmptyIntro = S.phase === "empty";
+    V.isLoading = S.phase === "loading";
+
+    /* loading steps */
+    const steps = ["fetch", "load", "reconstruct", "fx", "interpret", "present"];
+    V.phaseSteps = steps.map((n, i) => ({
+      name: n,
+      glyph: i < S.stepIdx ? "\u2713" : i === S.stepIdx ? "\u25cf" : "\u25cb",
+      style: "font-family:var(--mono);font-size:12px;display:inline-flex;gap:6px;align-items:center;color:" + (i < S.stepIdx ? "var(--pos)" : i === S.stepIdx ? "var(--ac)" : "var(--tx3)") + (i === S.stepIdx ? ";animation:hl-pulse 1.1s ease-in-out infinite" : "")
+    }));
+    V.progressStyle = "height:100%;width:" + Math.round(((S.stepIdx + 1) / 6) * 100) + "%;background:var(--ac);transition:width .35s ease-out";
+
+    /* errors */
+    const err = S.err || {};
+    V.hasError = S.phase === "error";
+    const kind = err.kind;
+    const E = {
+      invalid: { kicker: "400 · invalid address", title: "That is not a wallet address this engine can read.", body: "An address is 0x followed by exactly 40 hexadecimal characters. Nothing was sent anywhere. Correct the value above and try again.", accent: "var(--neg)", sugg: [] },
+      empty: { kicker: "no activity", title: "No in-window activity for this address.", body: "The address is well formed and the engine reached the venue, but found no perpetuals activity inside the analysis window. This is not an error.", accent: "var(--tx2)", sugg: ["Widen or clear as_of so earlier events are included.", "Check the address; a funding wallet often differs from the trading wallet.", "Try the example address to see a populated dashboard."] },
+      fx: { kicker: "422 · FX coverage", title: "The FX series does not yet cover your most recent events.", body: "Rather than publish a partial tax number built on an assumed rate, the engine stops. Bound the analysis with as_of to the last date the reference series covers, and every figure will be complete for that window.", accent: "var(--warn)", sugg: [] },
+      server: { kicker: "500 · engine error", title: "The engine failed while computing this address.", body: "Nothing partial is shown. Retry; if it persists the raw history for this address is probably hitting a reconstruction edge case worth reporting.", accent: "var(--neg)", sugg: [] },
+      network: { kicker: "network", title: "Could not reach the engine.", body: "The request did not complete. Check that the API server is running, then retry.", accent: "var(--neg)", sugg: [] }
+    }[kind] || { kicker: "", title: "", body: "", accent: "var(--neg)", sugg: [] };
+    V.errorKicker = E.kicker; V.errorTitle = E.title; V.errorBody = E.body; V.errorAccent = E.accent;
+    V.errorSuggestions = E.sugg; V.hasErrorSuggestions = E.sugg.length > 0;
+    V.isFxError = kind === "fx"; V.isRetryable = kind === "server" || kind === "network";
+    V.hasServerMessage = !!err.msg; V.serverMessage = err.msg || "";
+    V.errorPanelStyle = "border-top:var(--bw) solid var(--bd);background:var(--s2);padding:20px 26px;border-left:3px solid " + E.accent;
+
+    /* results present? */
+    const has = S.phase === "ready" && !!D;
+    V.hasResults = has;
+    V.generatedUtcFooter = has ? D.meta.generated_utc : DASH;
+
+    /* context strip */
+    if (has) {
+      V.addrFull = D.meta.address; V.addrShort = this.short(D.meta.address);
+      V.eventRange = D.meta.event_range || DASH;
+      V.generatedUtc = D.meta.generated_utc || DASH;
+      V.fxConvention = D.meta.fx_convention || DASH;
+      const mods = [];
+      if (S.adv.as_of) mods.push("as_of " + S.adv.as_of);
+      if (S.adv.onramp_cost !== "") mods.push("onramp_cost");
+      if (S.adv.salary_income_inr !== "") mods.push("salary_income_inr");
+      if (S.adv.other_head_income_inr !== "") mods.push("other_head_income_inr");
+      if (S.adv.refresh) mods.push("refresh");
+      V.modifiedInputs = mods.join(" · ");
+      V.hasModifiedInputs = mods.length > 0;
+      V.modifiedInputsTitle = "Non-default advanced inputs were used: " + mods.join(", ");
+    }
+    V.copyAddr = this.copyAddr; V.copyLabel = S.copied ? "copied" : "copy";
+    V.isCompactable = true; V.compactLabel = S.compact ? "full figures" : "compact (\u20b91.23 Cr)";
+    V.toggleCompact = this.toggleCompact;
+
+    /* warnings */
+    const warns = has && D.warnings ? D.warnings : [];
+    V.hasWarnings = warns.length > 0; V.warnings = warns; V.warningCount = warns.length;
+    V.warningsOpen = S.warningsOpen; V.toggleWarnings = this.toggleWarnings;
+    V.warningsToggleGlyph = S.warningsOpen ? "\u2212" : "+";
+
+    if (!has) return V;
+
+    const Ts = this.T_ORDER.map(k => Object.assign({ key: k }, D.treatments[k]));
+    const totals = Ts.map(t => this.isNum(t.total_tax_inr) ? t.total_tax_inr : null).filter(v => v !== null);
+    const lo = totals.length ? Math.min.apply(null, totals) : null, hi = totals.length ? Math.max.apply(null, totals) : null;
+    const vdaT = D.treatments.vda;
+    const gap = vdaT.vda_gross_vs_net_gap_inr;
+
+    /* D. headline */
+    const gapShown = this.isNum(gap) ? gap * S.gapAnim : null;
+    const tileBox = "background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);padding:16px;display:flex;flex-direction:column;min-height:168px;";
+    V.headline = [
+      { label: "Gross-vs-net gap · VDA reading", value: this.inr(gapShown), title: this.inrFull(gap),
+        boxStyle: tileBox + "border-color:var(--ac);background:linear-gradient(180deg,var(--ac-dim),var(--s1))",
+        valueStyle: "font-family:var(--mono);font-size:clamp(26px,3.1vw,42px);font-weight:600;letter-spacing:-.03em;margin-top:8px;line-height:1.05",
+        subStyle: "display:none", sub: "",
+        caption: "Income taxed under the VDA reading purely because losses are not allowed to offset gains. From treatments.vda.vda_gross_vs_net_gap_inr." },
+      { label: "Spread across interpretations", value: this.inr(lo) + " \u2013 " + this.inr(hi), title: "Lowest " + this.inrFull(lo) + "; highest " + this.inrFull(hi),
+        boxStyle: tileBox, valueStyle: "font-family:var(--mono);font-size:clamp(17px,1.5vw,22px);font-weight:600;margin-top:8px;line-height:1.25;letter-spacing:-.01em",
+        subStyle: "display:none", sub: "",
+        caption: "The size of the legal uncertainty, not an estimate of anything. Range of treatments.*.total_tax_inr." },
+      { label: "Turnover", value: this.inr(vdaT.turnover_inr), title: this.inrFull(vdaT.turnover_inr),
+        boxStyle: tileBox, valueStyle: "font-family:var(--mono);font-size:clamp(17px,1.5vw,22px);font-weight:600;margin-top:8px;letter-spacing:-.01em",
+        subStyle: vdaT.audit_flag ? "margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--warn);border:var(--bw) solid var(--warn);border-radius:var(--r1);padding:2px 7px;display:inline-block;align-self:flex-start" : "display:none",
+        sub: "audit threshold exceeded",
+        caption: "From treatments.vda.turnover_inr and audit_flag; threshold " + this.inr(D.cross_cutting.assumptions_box.audit_turnover_threshold_inr, { compact: true }) + "." },
+      { label: "Events analysed", value: this.int(D.ledger_row_count), title: this.int(D.ledger_row_count) + " ledger events",
+        boxStyle: tileBox, valueStyle: "font-family:var(--mono);font-size:clamp(17px,1.5vw,22px);font-weight:600;margin-top:8px;letter-spacing:-.01em",
+        subStyle: "margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--tx2)", sub: D.meta.event_range,
+        caption: "From ledger_row_count and meta.event_range. Preview table below shows the first " + (D.ledger_preview || []).length + " rows." }
+    ];
+
+    /* E. cards */
+    const allOpen = this.T_ORDER.every(k => S.caveatsOpen[k]);
+    V.expandAllLabel = allOpen ? "Collapse all caveats" : "Expand all caveats";
+    V.toggleAllCaveats = () => {
+      const next = {};
+      this.T_ORDER.forEach(k => { next[k] = !allOpen; });
+      this.setState({ caveatsOpen: next });
+    };
+    V.cards = Ts.map(t => {
+      const cf = t.premise === "counterfactual";
+      const acts = [];
+      const sr = t.section_refs || {};
+      ["1961", "2025"].forEach(y => { if (sr[y] && sr[y].length) acts.push({ year: y, refs: sr[y] }); });
+      const row = (k, v, title, mono) => ({ k: k, v: v, title: title || v, style: "margin:0;font-family:" + (mono === false ? "var(--sans)" : "var(--mono)") + ";font-size:11.5px;color:var(--tx);text-align:right;white-space:nowrap" });
+      const rows = [
+        row("Taxable base", this.inr(t.taxable_base_inr), this.inrFull(t.taxable_base_inr)),
+        row("Rate basis", t.rate_basis === "flat_30" ? "flat 30%" : t.rate_basis === "slab" ? "slab" : DASH, "treatments." + t.key + ".rate_basis = " + t.rate_basis),
+        row("Tax before cess", this.inr(t.tax_before_cess_inr), this.inrFull(t.tax_before_cess_inr)),
+        row("Surcharge", this.inr(t.surcharge_inr), this.inrFull(t.surcharge_inr)),
+        row("Cess", this.inr(t.cess_inr), this.inrFull(t.cess_inr)),
+        row("Current-year set-off", this.inr(t.current_year_setoff_inr), this.inrFull(t.current_year_setoff_inr)),
+        row("Carry forward", this.inr(t.carry_forward_inr), this.inrFull(t.carry_forward_inr)),
+        row("Carry-forward years", this.isNum(t.carry_forward_years) ? String(t.carry_forward_years) : DASH, this.isNum(t.carry_forward_years) ? t.carry_forward_years + " years" : "not applicable under this reading"),
+        row("Expected TDS", this.inr(t.tds_expected_on_pnl_inr), this.inrFull(t.tds_expected_on_pnl_inr)),
+        row("Turnover", this.inr(t.turnover_inr), this.inrFull(t.turnover_inr))
+      ];
+      const setoffRows = t.key === "non_speculative" ? [
+        { k: "Other-head income", v: this.inr(t.other_head_income_inr), title: this.inrFull(t.other_head_income_inr) },
+        { k: "Other head after set-off", v: this.inr(t.other_head_income_after_setoff_inr), title: this.inrFull(t.other_head_income_after_setoff_inr) },
+        { k: "Salary before", v: this.inr(t.salary_income_inr), title: this.inrFull(t.salary_income_inr) },
+        { k: "Salary after", v: this.inr(t.salary_income_after_setoff_inr), title: this.inrFull(t.salary_income_after_setoff_inr) }
+      ] : [];
+      return {
+        key: t.key, label: this.T_LABEL[t.key], actGroups: acts, isCf: cf,
+        boxStyle: "background:var(--s1);border:" + (cf ? "var(--bw-thick) solid var(--cf)" : "var(--bw) solid var(--bd)") + ";border-radius:var(--r3);display:flex;flex-direction:column;overflow:hidden",
+        premiseStyle: cf
+          ? "margin:14px 16px 0;background:var(--cf);color:var(--bg);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;font-weight:700;padding:6px 10px;border-radius:var(--r1);text-align:center"
+          : "margin:14px 16px 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--tx3);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:5px 10px;text-align:center",
+        premiseLabel: cf ? "COUNTERFACTUAL FOR THIS ADDRESS" : "PREMISE HOLDS FOR THIS ADDRESS",
+        premiseTitle: cf ? "This reading requires INR-margined settlement, which this account does not have." : "treatments." + t.key + ".premise = live",
+        total: this.inr(t.total_tax_inr), totalTitle: this.inrFull(t.total_tax_inr),
+        rows: rows, lossLabel: this.LOSS_LABEL[t.loss_treatment] || DASH,
+        auditFlag: !!t.audit_flag, hasSetoffBlock: t.key === "non_speculative", setoffRows: setoffRows,
+        caveats: t.caveats || [], caveatCount: (t.caveats || []).length, caveatsOpen: !!S.caveatsOpen[t.key],
+        toggleCaveats: () => this.setState(s => ({ caveatsOpen: Object.assign({}, s.caveatsOpen, { [t.key]: !s.caveatsOpen[t.key] }) })),
+        openDocs: () => this.openDocs("treatments-guide", this.DOC_ANCHOR[t.key])
+      };
+    });
+
+    /* F. bars */
+    const maxT = hi || 1;
+    V.allZeroTax = hi === 0; V.anyTax = hi !== 0;
+    V.bars = Ts.map(t => {
+      const v = this.isNum(t.total_tax_inr) ? t.total_tax_inr : 0;
+      const cf = t.premise === "counterfactual";
+      return {
+        label: this.T_SHORT[t.key], value: this.inr(t.total_tax_inr), title: this.inrFull(t.total_tax_inr), isCf: cf,
+        fillStyle: "height:100%;width:" + Math.max(0.4, (v / maxT) * 100) + "%;transition:width .5s ease-out;" + (cf
+          ? "background:repeating-linear-gradient(45deg,var(--cf) 0 4px,transparent 4px 8px);border-right:var(--bw-thick) solid var(--cf)"
+          : "background:var(--ac)")
+      };
+    });
+    const wfMax = Math.max(Math.abs(vdaT.vda_gross_base_inr || 0), Math.abs(gap || 0), Math.abs(vdaT.vda_net_base_inr || 0)) || 1;
+    V.waterfall = [
+      { label: "Gross positive income", value: this.inr(vdaT.vda_gross_base_inr), title: this.inrFull(vdaT.vda_gross_base_inr), color: "var(--tx)", fillStyle: "height:100%;width:" + (Math.abs(vdaT.vda_gross_base_inr || 0) / wfMax) * 100 + "%;background:var(--ac)" },
+      { label: "Losses that do not offset", value: this.inr(gap === null ? null : -gap), title: this.inrFull(gap === null ? null : -gap), color: "var(--neg)", fillStyle: "height:100%;width:" + (Math.abs(gap || 0) / wfMax) * 100 + "%;background:repeating-linear-gradient(45deg,var(--neg) 0 5px,transparent 5px 10px)" },
+      { label: "Net economic result", value: this.inr(vdaT.vda_net_base_inr), title: this.inrFull(vdaT.vda_net_base_inr), color: "var(--tx)", fillStyle: "height:100%;width:" + (Math.abs(vdaT.vda_net_base_inr || 0) / wfMax) * 100 + "%;background:var(--tx3)" }
+    ];
+    V.gapValue = this.inr(gap); V.gapTitle = this.inrFull(gap);
+
+    const lc = D.ledger_counts || {};
+    const lcKeys = Object.keys(lc);
+    const lcTotal = lcKeys.reduce((a, k) => a + (lc[k] || 0), 0) || 1;
+    const palette = ["var(--ac)", "var(--tx3)", "var(--warn)", "var(--cf)", "var(--pos)"];
+    V.composition = lcKeys.map((k, i) => {
+      const pct = (lc[k] / lcTotal) * 100;
+      return {
+        label: k, countPct: this.int(lc[k]) + " · " + pct.toFixed(1) + "%",
+        title: k + ": " + this.int(lc[k]) + " events, " + pct.toFixed(1) + "% of " + this.int(lcTotal),
+        segStyle: "width:" + pct + "%;background:" + palette[i % palette.length],
+        dotStyle: "width:9px;height:9px;border-radius:2px;background:" + palette[i % palette.length]
+      };
+    });
+
+    const eps = D.schedule_vda || [];
+    const epMax = eps.reduce((m, e) => Math.max(m, Math.abs(e.income_inr || 0)), 0) || 1;
+    const epTitle = (e) => e.asset + " · " + e.episode_id + " · acquired " + e.date_of_acquisition + ", transferred " + e.date_of_transfer + " · income " + this.inrFull(e.income_inr) + (e.is_liquidation ? " · liquidation" : "") + (e.cost_basis_incomplete ? " · cost basis incomplete" : "");
+    V.episodesUp = eps.map(e => {
+      const up = (e.income_inr || 0) > 0;
+      return { title: epTitle(e), style: "flex:1;min-width:5px;height:" + (up ? Math.max(3, (Math.abs(e.income_inr) / epMax) * 86) : 0) + "px;background:" + (e.is_liquidation ? "repeating-linear-gradient(45deg,var(--pos) 0 3px,transparent 3px 6px)" : "var(--pos)") + ";border-radius:1px 1px 0 0;cursor:crosshair" };
+    });
+    V.episodesDown = eps.map(e => {
+      const dn = (e.income_inr || 0) < 0;
+      return { title: epTitle(e), style: "flex:1;min-width:5px;height:" + (dn ? Math.max(3, (Math.abs(e.income_inr) / epMax) * 86) : 0) + "px;background:" + (e.is_liquidation ? "repeating-linear-gradient(45deg,var(--neg) 0 3px,transparent 3px 6px)" : "var(--neg)") + ";border-radius:0 0 1px 1px;cursor:crosshair" };
+    });
+
+    /* G. TDS */
+    const tds = D.tds || {};
+    V.tdsRate = this.pct(tds.tds_rate);
+    const tp = [];
+    ["1961", "2025"].forEach(y => { (((tds.section_refs || {})[y]) || []).forEach(r => tp.push(y + " " + r)); });
+    V.tdsPills = tp;
+    V.tdsByReading = this.T_ORDER.map(k => {
+      const v = (tds.tds_expected_on_pnl_by_reading || {})[k];
+      return { label: this.T_SHORT[k], value: this.inr(v), title: this.inrFull(v) };
+    });
+    V.tdsFacts = [
+      { label: "Expected TDS on stablecoin legs", value: this.inr(tds.tds_expected_on_legs_inr), title: this.inrFull(tds.tds_expected_on_legs_inr) },
+      { label: "Leg count", value: this.int(tds.tds_leg_count), title: this.int(tds.tds_leg_count) + " legs" },
+      { label: "Actually deducted on venue", value: this.inr(tds.tds_actually_deducted_on_venue_inr), title: this.inrFull(tds.tds_actually_deducted_on_venue_inr) },
+      { label: "Threshold · specified person", value: this.inr((tds.thresholds_inr || {}).specified_person), title: this.inrFull((tds.thresholds_inr || {}).specified_person) },
+      { label: "Threshold · other", value: this.inr((tds.thresholds_inr || {}).other), title: this.inrFull((tds.thresholds_inr || {}).other) }
+    ];
+    V.tdsCaveats = tds.caveats || [];
+
+    /* H. cross-cutting */
+    const cc = D.cross_cutting || {};
+    V.limitations = cc.limitations_top || [];
+    const ob = cc.onramp_boundary || {};
+    V.onrampNote = ob.note || DASH;
+    V.onrampMissing = !ob.onramp_cost_supplied;
+    V.onrampSupplied = !!ob.onramp_cost_supplied;
+    V.onrampValue = this.inr(Number(S.adv.onramp_cost));
+    V.jumpToOnramp = this.jumpToOnramp;
+    V.aisNote = cc.ais_asymmetry_note || DASH;
+    V.cgNote = cc.capital_gains_excluded_note || DASH;
+    V.checklist = (cc.disclosure_checklist || []).map((t, i) => ({
+      text: t, checked: !!S.checked[i],
+      toggle: () => this.setState(s => ({ checked: Object.assign({}, s.checked, { [i]: !s.checked[i] }) }))
+    }));
+    const ab = cc.assumptions_box || {};
+    const userKeys = { salary_income_inr: S.adv.salary_income_inr !== "", other_head_income_inr: S.adv.other_head_income_inr !== "", onramp_cost_inr: S.adv.onramp_cost !== "" };
+    const pctKeys = ["vda_flat_rate", "cess_rate", "tds_rate"];
+    V.assumptions = Object.keys(ab).map(k => {
+      const raw = ab[k];
+      let v;
+      if (pctKeys.indexOf(k) >= 0) v = this.pct(raw);
+      else if (typeof raw === "boolean") v = raw ? "yes" : "no";
+      else if (typeof raw === "number") v = /_inr$/.test(k) ? this.inr(raw) : this.int(raw);
+      else if (raw === null || raw === undefined) v = DASH;
+      else v = String(raw);
+      const user = !!userKeys[k];
+      return {
+        k: k, v: v + (user ? "  · user-supplied" : ""), title: k + " = " + String(raw) + (user ? " (supplied by you)" : " (engine default)"),
+        style: "font-family:var(--mono);font-size:11.5px;text-align:right;color:" + (user ? "var(--ac)" : "var(--tx)")
+      };
+    });
+    V.hasStablecoinLegs = cc.has_stablecoin_legs ? "yes" : "no";
+    V.nonHlClasses = (cc.non_hyperliquid_asset_classes_detected || []).length ? cc.non_hyperliquid_asset_classes_detected.join(", ") : DASH;
+
+    /* I. tables */
+    const isLedger = S.tab === "ledger";
+    const cols = isLedger ? this.LEDGER_COLS : this.VDA_COLS;
+    const srcRows = (isLedger ? D.ledger_preview : D.schedule_vda) || [];
+    const sortSpec = S.sort[isLedger ? "ledger" : "vda"];
+    const f = S.filter.trim().toLowerCase();
+    let rows = srcRows.filter(r => !f || cols.some(c => String(c.k === "flags" ? this.flagsOf(r) : r[c.k] === null || r[c.k] === undefined ? "" : r[c.k]).toLowerCase().indexOf(f) >= 0));
+    rows = rows.slice().sort((a, b) => {
+      const ka = sortSpec.k === "flags" ? this.flagsOf(a) : a[sortSpec.k], kb = sortSpec.k === "flags" ? this.flagsOf(b) : b[sortSpec.k];
+      if (typeof ka === "number" && typeof kb === "number") return (ka - kb) * sortSpec.d;
+      return String(ka === null || ka === undefined ? "" : ka).localeCompare(String(kb === null || kb === undefined ? "" : kb)) * sortSpec.d;
+    });
+    V.tabs = [
+      { key: "ledger", label: "Ledger preview" }, { key: "vda", label: "Schedule VDA" }
+    ].map(t => ({
+      label: t.label, active: (S.tab === t.key),
+      select: () => this.selectTab(t.key),
+      style: "font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;background:transparent;border:0;border-bottom:2px solid " + (S.tab === t.key ? "var(--ac)" : "transparent") + ";padding:13px 16px;cursor:pointer;color:" + (S.tab === t.key ? "var(--tx)" : "var(--tx3)")
+    }));
+    V.tableFilter = S.filter; V.onFilter = this.onFilter; V.downloadTableCsv = this.downloadTableCsv;
+    V.tableCountLabel = "showing " + rows.length + " of " + (isLedger ? this.int(D.ledger_row_count) + " ledger events (preview holds " + srcRows.length + ")" : srcRows.length + " Schedule-VDA episodes");
+    const thBase = "position:sticky;top:0;background:var(--s3);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;font-weight:500;padding:9px 11px;border-bottom:var(--bw) solid var(--bd-strong);cursor:pointer;white-space:nowrap;z-index:1;";
+    V.tableCols = cols.map(c => ({
+      label: c.label, arrow: sortSpec.k === c.k ? (sortSpec.d > 0 ? " \u2191" : " \u2193") : "",
+      title: "sort by " + c.k, sort: () => this.sortBy(c.k),
+      style: thBase + "text-align:" + (c.kind === "inr" || c.kind === "usd" || c.kind === "n" ? "right" : "left") + ";color:" + (sortSpec.k === c.k ? "var(--ac)" : "var(--tx2)")
+    }));
+    const tdBase = "padding:7px 11px;border-bottom:var(--bw) solid var(--bd);white-space:nowrap;";
+    V.tableRows = rows.map((r, i) => ({
+      style: "background:" + (i % 2 ? "var(--s2)" : "transparent"),
+      cells: cols.map(c => {
+        const raw = c.k === "flags" ? this.flagsOf(r) : r[c.k];
+        let t, align = "left", color = "var(--tx)", mono = true;
+        if (c.kind === "inr") { t = this.inr(raw); align = "right"; color = this.isNum(raw) && raw < 0 ? "var(--neg)" : "var(--tx)"; }
+        else if (c.kind === "usd") { t = this.usd(raw); align = "right"; color = this.isNum(raw) && raw < 0 ? "var(--neg)" : "var(--tx)"; }
+        else if (c.kind === "n") { t = this.isNum(raw) ? String(raw) : DASH; align = "right"; }
+        else if (c.kind === "flags") { t = raw || DASH; color = raw ? "var(--flag)" : "var(--tx3)"; }
+        else { t = raw === null || raw === undefined || raw === "" ? DASH : String(raw); color = "var(--tx2)"; }
+        return { t: t, title: c.k + " = " + (raw === null || raw === undefined || raw === "" ? "not available" : String(raw)), style: tdBase + "text-align:" + align + ";color:" + color + ";font-family:" + (mono ? "var(--mono)" : "var(--sans)") };
+      })
+    }));
+
+    /* docs drawer */
+    const doc = this.DOCS.filter(d => d.id === S.docs.id)[0] || this.DOCS[0];
+    V.docsOpen = S.docs.open;
+    V.docTitle = doc.title;
+    V.closeDocs = this.closeDocs;
+    V.drawerRef = (el) => { this._drawer = el; };
+    V.docBodyRef = (el) => { this._body = el; };
+    V.onDocScroll = this.onDocScroll;
+    V.docTabs = this.DOCS.map(d => ({
+      short: d.short, title: d.title, select: () => this.openDocs(d.id, d.sections[0].id),
+      style: "font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;border-radius:999px;padding:4px 10px;cursor:pointer;border:var(--bw) solid " + (d.id === doc.id ? "var(--ac)" : "var(--bd)") + ";background:" + (d.id === doc.id ? "var(--ac-dim)" : "transparent") + ";color:" + (d.id === doc.id ? "var(--ac)" : "var(--tx3)")
+    }));
+    V.docSearch = S.docs.search;
+    V.onDocSearch = this.onDocSearch;
+    const q = S.docs.search.trim().toLowerCase();
+    V.hasDocSearch = !!q;
+    const matchIn = (sec) => (sec.title + " " + sec.html).toLowerCase().indexOf(q) >= 0;
+    if (q) {
+      let mSec = 0, mHits = 0;
+      this.DOCS.forEach(d => d.sections.forEach(sec => {
+        const hay = (sec.title + " " + sec.html).toLowerCase();
+        let idx = hay.indexOf(q), n = 0;
+        while (idx >= 0) { n++; idx = hay.indexOf(q, idx + q.length); }
+        if (n) { mSec++; mHits += n; }
+      }));
+      V.docSearchSummary = mHits + " match" + (mHits === 1 ? "" : "es") + " in " + mSec + " section" + (mSec === 1 ? "" : "s");
+    } else V.docSearchSummary = "";
+    const secs = q ? doc.sections.filter(matchIn) : doc.sections;
+    V.toc = secs.map(sec => ({
+      title: sec.title,
+      go: () => this.scrollToSection(sec.id),
+      style: "display:block;width:100%;text-align:left;background:" + (S.docs.active === sec.id ? "var(--ac-dim)" : "transparent") + ";border:0;border-left:2px solid " + (S.docs.active === sec.id ? "var(--ac)" : "transparent") + ";padding:6px 8px 6px " + (6 + (sec.level - 1) * 14) + "px;cursor:pointer;font-size:11.5px;line-height:1.4;color:" + (S.docs.active === sec.id ? "var(--tx)" : "var(--tx2)")
+    }));
+    const h = React.createElement;
+    const hi_ = (html) => q ? html.replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"), '<mark style="background:var(--ac);color:var(--ac-tx)">$1</mark>') : html;
+    V.docBody = h("div", { key: doc.id + q, style: { display: "grid", gap: "26px" } }, secs.map(sec => h("section", { key: sec.id, "data-anchor": sec.id, style: { scrollMarginTop: "12px" } }, [
+      h("div", { key: "hd", style: { display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "10px" } }, [
+        h(sec.level === 1 ? "h2" : "h3", { key: "t", id: doc.id + "-" + sec.id, style: { margin: 0, fontSize: sec.level === 1 ? "17px" : "14px", fontWeight: 600, letterSpacing: "-.01em", color: "var(--tx)" } }, sec.title),
+        h("button", { key: "b", type: "button", onClick: () => this.copySectionLink(doc.id, sec.id), title: "Copy link to this section", "aria-label": "Copy link to " + sec.title, style: { fontFamily: "var(--mono)", fontSize: "10px", background: "transparent", border: "1px solid var(--bd)", borderRadius: "2px", padding: "1px 6px", cursor: "pointer", color: "var(--tx3)" } }, "link")
+      ]),
+      h("div", { key: "bd", style: { fontSize: "13px", lineHeight: 1.75, color: "var(--tx2)" }, dangerouslySetInnerHTML: { __html: hi_(sec.html) } })
+    ])));
+
+    /* report modal */
+    const R = S.report;
+    V.reportOpen = R.open; V.closeReport = this.closeReport;
+    V.modalRef = (el) => { this._modal = el; };
+    const fys = R.fys || [];
+    V.hasFys = fys.length > 0; V.noFys = R.fys !== null && fys.length === 0;
+    V.fyChips = fys.map(fy => ({
+      label: "FY " + fy, active: R.fy === fy,
+      select: () => this.setState(s => ({ report: Object.assign({}, s.report, { fy: fy, dl: null }) })),
+      style: "font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;border:var(--bw) solid " + (R.fy === fy ? "var(--ac)" : "var(--bd)") + ";background:" + (R.fy === fy ? "var(--ac-dim)" : "transparent") + ";color:" + (R.fy === fy ? "var(--ac)" : "var(--tx2)")
+    }));
+    V.manifest = [
+      { name: "00_summary.csv", desc: "Financial-year totals: realised P&L, funding, fees, turnover, and the arithmetic under each reading, unlabelled by preference." },
+      { name: "01_futures_trades.csv", desc: "One row per closed episode: asset, dates, consideration, cost of acquisition, income, FX rate and FX date." },
+      { name: "02_funding.csv", desc: "Every funding payment and receipt, in USD and INR, with the rate used." },
+      { name: "03_fees.csv", desc: "Venue fees by event, in USD and INR." },
+      { name: "04_cashflows.csv", desc: "Deposits and withdrawals of stablecoin, with gross consideration for TDS purposes." },
+      { name: "05_open_positions.csv", desc: "Positions still open at the financial-year boundary, marked as unrealised and excluded from every total." },
+      { name: "06_assumptions_and_notes.csv", desc: "Every assumption, convention and caveat used, so the sheets are self-describing." }
+    ];
+    V.zipDisabled = !R.fy || (R.dl && R.dl.k === "pending");
+    V.zipButtonStyle = "font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;border:0;border-radius:var(--r2);padding:11px 18px;cursor:" + (!R.fy ? "not-allowed" : "pointer") + ";background:" + (!R.fy ? "var(--s3)" : "var(--ac)") + ";color:" + (!R.fy ? "var(--tx3)" : "var(--ac-tx)");
+    V.downloadZip = this.downloadZip;
+    V.downloadLedgerCsv = this.downloadLedgerCsv; V.downloadVdaCsv = this.downloadVdaCsv; V.printDashboard = this.printDashboard;
+    V.hasDownloadState = !!R.dl;
+    V.downloadStateText = R.dl ? R.dl.t : "";
+    V.downloadStateStyle = "font-family:var(--mono);font-size:11.5px;padding:10px 12px;border-radius:var(--r2);border:var(--bw) solid " + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--bd)") + ";color:" + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--tx2)");
+
+    return V;
+  }
+}
+</script>
+</body>
+</html>

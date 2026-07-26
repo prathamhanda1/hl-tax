@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperliquid perps — Indian tax position (for CA review)</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#555; --line:#d9d9d9; --warn-bg:#fff4f4;
+          --warn-bd:#e0b4b4; --note-bg:#f4f8ff; --note-bd:#b4cbe0;
+          --cf-bg:#fbf4e6; --head-bg:#f2f2f2; }
+  * { box-sizing:border-box; }
+  body { font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:34px 0 10px; border-bottom:2px solid var(--ink);
+       padding-bottom:4px; }
+  h3 { font-size:16px; margin:18px 0 6px; }
+  .sub { color:var(--muted); margin:0 0 18px; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+         margin:14px 0; }
+  .warn { background:var(--warn-bg); border-color:var(--warn-bd); }
+  .note { background:var(--note-bg); border-color:var(--note-bd); }
+  .cf   { background:var(--cf-bg); }
+  ul { margin:6px 0; padding-left:22px; }
+  li { margin:3px 0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:7px 9px; text-align:left;
+           vertical-align:top; }
+  th { background:var(--head-bg); }
+  .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .metrics th { width:26%; }
+  .pill { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px;
+          border-radius:10px; background:#eee; color:#333; }
+  .pill.cf { background:#f3d9d9; color:#7a1f1f; }
+  .pill.live { background:#dceadc; color:#1f5a2f; }
+  .flag { color:#7a1f1f; font-weight:600; }
+  .kvs { display:grid; grid-template-columns:1fr 1fr; gap:2px 24px; }
+  .kvs div { display:flex; justify-content:space-between; border-bottom:1px dotted var(--line);
+             padding:2px 0; }
+  .kvs .k { color:var(--muted); }
+  code { background:#f0f0f0; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .caveat-cell ul { padding-left:18px; }
+  .caveat-cell li { font-size:13px; color:#333; }
+  .foot { color:var(--muted); font-size:13px; margin-top:40px;
+          border-top:1px solid var(--line); padding-top:12px; }
+  @media print { body { max-width:none; } h2 { break-after:avoid; } table { break-inside:auto; } }
+</style>
+</head>
+<body>
+
+<h1>Hyperliquid perpetuals — Indian tax position</h1>
+<p class="sub">
+  Address <code>{{ meta.address }}</code> ·
+  {{ meta.event_range or "no events" }} ·
+  generated {{ meta.generated_utc }} ·
+  <strong>{{ ledger_row_count }}</strong> ledger events
+</p>
+
+<!-- LIMITATIONS FIRST — non-negotiable placement. -->
+<h2>Read this first — limitations</h2>
+<div class="box warn">
+  <ul>
+    {% for lim in cross_cutting.limitations_top %}<li>{{ lim }}</li>{% endfor %}
+  </ul>
+  <p style="margin:8px 0 0"><strong>This document computes arithmetic under four
+  competing legal readings and declares none of them correct.</strong> It is not
+  tax advice. A practising CA must review and co-sign before anything is filed.</p>
+</div>
+
+<!-- ON-RAMP / OFF-RAMP BOUNDARY + manual-input slot. -->
+<h2>On-ramp / off-ramp boundary</h2>
+<div class="box note">
+  <p>{{ cross_cutting.onramp_boundary.note }}</p>
+  <p style="margin:8px 0 0">
+    {% if onramp_cost is none %}
+      <span class="flag">Manual input slot is EMPTY.</span>
+      Set <code>config.ON_RAMP_USDC_COST_INR</code> to your USDC acquisition cost
+      (from your Indian-exchange statement) to complete the stablecoin-leg
+      gain/loss. Until then, VDA-reading numbers cover the <strong>Hyperliquid leg
+      only</strong> — not your full VDA tax liability.
+    {% else %}
+      On-ramp USDC cost supplied: <strong>{{ onramp_cost | inr }}</strong>.
+    {% endif %}
+  </p>
+  <p style="margin:8px 0 0"><em>{{ cross_cutting.ais_asymmetry_note }}</em></p>
+</div>
+
+<!-- THE FOUR TREATMENTS, SIDE BY SIDE. -->
+<h2>The four treatments, side by side</h2>
+<p class="sub">Ordered by section number, not by preference. No treatment is
+  marked best, correct, or recommended.</p>
+<table class="metrics">
+  <tr>
+    <th>Metric</th>
+    {% for t in treatments %}
+    <th>{{ t.label }}<br>
+      <span class="pill {{ 'cf' if t.is_counterfactual else 'live' }}">{{ t.premise_note }}</span>
+    </th>
+    {% endfor %}
+  </tr>
+  <tr><th>Taxable base</th>
+    {% for t in treatments %}<td class="num">{{ t.taxable_base_inr }}</td>{% endfor %}</tr>
+  <tr><th>Tax before cess</th>
+    {% for t in treatments %}<td class="num">{{ t.tax_before_cess_inr }}</td>{% endfor %}</tr>
+  <tr><th>Surcharge</th>
+    {% for t in treatments %}<td class="num">{{ t.surcharge_inr }}</td>{% endfor %}</tr>
+  <tr><th>Cess</th>
+    {% for t in treatments %}<td class="num">{{ t.cess_inr }}</td>{% endfor %}</tr>
+  <tr><th>Total tax</th>
+    {% for t in treatments %}<td class="num"><strong>{{ t.total_tax_inr }}</strong></td>{% endfor %}</tr>
+  <tr><th>Loss treatment</th>
+    {% for t in treatments %}<td>{{ t.loss_treatment }}</td>{% endfor %}</tr>
+  <tr><th>Set-off this year</th>
+    {% for t in treatments %}<td class="num">{{ t.current_year_setoff_inr }}</td>{% endfor %}</tr>
+  <tr><th>Carried forward</th>
+    {% for t in treatments %}<td class="num">{{ t.carry_forward_inr }}
+      {% if t.carry_forward_years %}<br><span class="sub">({{ t.carry_forward_years }} yrs)</span>{% endif %}</td>{% endfor %}</tr>
+  <tr><th>TDS expected</th>
+    {% for t in treatments %}<td class="num">{{ t.tds_expected_inr }}</td>{% endfor %}</tr>
+  <tr><th>Turnover (ICAI)</th>
+    {% for t in treatments %}<td class="num">{{ t.turnover_inr }}</td>{% endfor %}</tr>
+  <tr><th>Tax audit flag</th>
+    {% for t in treatments %}<td>{% if t.audit_flag %}<span class="flag">YES</span>{% else %}no{% endif %}</td>{% endfor %}</tr>
+</table>
+
+{% set vda = treatments[0] %}
+<div class="box cf">
+  <h3 style="margin-top:0">The VDA gross-vs-net gap — the headline number</h3>
+  <p>Under the VDA reading with no set-off, losing closes count for nothing:
+    the tax base is the <strong>gross</strong> of winning closes only, not the
+    net. Gross base {{ vda.vda_gross_base_inr }} vs net base
+    {{ vda.vda_net_base_inr }} — a gap of
+    <strong>{{ vda.vda_gross_vs_net_gap_inr }}</strong> that the slab readings
+    (OP 2–4) do not impose. This delta is the practical stake of the whole
+    classification question.</p>
+</div>
+
+<!-- TDS -->
+<h2>TDS (1%) — decomposed, not assumed resolved</h2>
+<div class="box">
+  <div class="kvs">
+    <div><span class="k">TDS rate</span><span>{{ (tds.tds_rate * 100) }}%</span></div>
+    <div><span class="k">Expected on stablecoin legs (all readings)</span><span>{{ tds.tds_expected_on_legs_inr | inr }}</span></div>
+    <div><span class="k">Expected on P&amp;L — VDA reading only</span><span>{{ tds.tds_expected_on_pnl_by_reading.vda | inr }}</span></div>
+    <div><span class="k">Actually deducted on-venue (foreign DEX)</span><span>{{ tds.tds_actually_deducted_on_venue_inr | inr }}</span></div>
+  </div>
+  <ul style="margin-top:10px">
+    {% for c in tds.caveats %}<li>{{ c }}</li>{% endfor %}
+  </ul>
+</div>
+
+<!-- ASSUMPTIONS BOX -->
+<h2>Assumptions used (every one is a knob, not a hidden constant)</h2>
+<div class="box note">
+  <div class="kvs">
+    {% for k, v in cross_cutting.assumptions_box.items() %}
+    <div><span class="k">{{ k }}</span><span>{{ v }}</span></div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- PER-TREATMENT CAVEATS + SECTION REFS -->
+<h2>Per-treatment caveats and section references</h2>
+{% for t in treatments %}
+<h3>{{ t.label }}
+  <span class="pill {{ 'cf' if t.is_counterfactual else 'live' }}">{{ t.premise_note }}</span>
+</h3>
+<div class="box caveat-cell">
+  <p class="sub">Section refs (NEEDS VERIFICATION, dual-cited 1961 → 2025):
+    {% for era, refs in t.section_refs.items() %}<strong>{{ era }}:</strong>
+      {{ refs | join(", ") }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  <ul>{% for c in t.caveats %}<li>{{ c }}</li>{% endfor %}</ul>
+</div>
+{% endfor %}
+
+<!-- DISCLOSURE CHECKLIST + EXCLUSIONS -->
+<h2>Disclosure checklist &amp; scope notes</h2>
+<div class="box">
+  <ul>{% for d in cross_cutting.disclosure_checklist %}<li>{{ d }}</li>{% endfor %}</ul>
+  <p class="sub">{{ cross_cutting.capital_gains_excluded_note }}</p>
+  {% if cross_cutting.non_hyperliquid_asset_classes_detected %}
+  <p class="flag">Non-Hyperliquid / out-of-scope asset classes detected:
+    {{ cross_cutting.non_hyperliquid_asset_classes_detected | join(", ") }} —
+    these flows are excluded from the numbers above.</p>
+  {% endif %}
+</div>
+
+<!-- LEDGER DIGEST -->
+<h2>Ledger digest (full detail in ledger.csv)</h2>
+<div class="box">
+  <div class="kvs">
+    {% for cat, n in ledger_counts.items() %}
+    <div><span class="k">{{ cat }}</span><span>{{ n }} events</span></div>
+    {% endfor %}
+  </div>
+  <p class="sub" style="margin-top:10px">Every number in this summary traces to a
+    row in <code>ledger.csv</code>; each closing episode also appears in
+    <code>schedule_vda.csv</code>.</p>
+</div>
+
+<p class="foot">
+  FX convention: {{ meta.fx_convention or "most recent prior business-day FBIL reference rate" }}.
+  Cost-basis convention: {{ meta.cost_basis_convention }}.
+  This tool is read-only and never accepts a private key.
+  It computes; your CA advises.
+</p>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Phase 8 web layer — installed ON TOP OF the repo's requirements.txt:
+#
+#     pip install -r requirements.txt -r webapp/requirements.txt
+#
+# The engine itself gains no dependency from the dashboard: these three are
+# used only by webapp/server.py. React is vendored under webapp/static/vendor/,
+# so the browser side needs no npm, no build step and no CDN.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+httpx>=0.27          # fastapi.testclient (tests/test_webapp_server.py) only

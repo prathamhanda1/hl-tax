@@ -1,0 +1,17 @@
+{
+ "schema_version": 1,
+ "coverage_start": "2018-07-10",
+ "coverage_end": "2026-07-16",
+ "row_count": 1925,
+ "last_fetch_utc": "2026-07-24T00:32:03.620855+00:00",
+ "upstream_end": "2026-07-16",
+ "seed_sha256": "480017292d68f1979a875c4c0abeadabf26b66db3dd071459b665ebc8784db88",
+ "sources_present": [
+  "frankfurter-fbil"
+ ],
+ "administrator": "FBIL reference rate (RBI before 2018-07-10); retrieved via Frankfurter FBIL provider",
+ "gaps_expected": "weekends + Mumbai bank holidays only",
+ "notes": [
+  "update"
+ ]
+}
