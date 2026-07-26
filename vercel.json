@@ -4,11 +4,7 @@
     {
       "src": "api/index.py",
       "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "maxDuration": 60,
-        "includeFiles": "fx/data/**"
-      }
+      "config": { "maxLambdaSize": "50mb", "maxDuration": 60 }
     },
     { "src": "webapp/static/**", "use": "@vercel/static" }
   ],
