@@ -1349,6 +1349,84 @@ class Component extends DCLogic {
     V.warningsOpen = S.warningsOpen; V.toggleWarnings = this.toggleWarnings;
     V.warningsToggleGlyph = S.warningsOpen ? "\u2212" : "+";
 
+    /* The docs drawer and the CA-report modal are chrome, not results:
+       their buttons live in the header and must work before (and after) an
+       analysis, including when one fails. They are bound ABOVE the
+       `if (!has) return V;` below for exactly that reason -- binding them
+       after it left every header button inert until a report rendered,
+       which on an FX-refusal (422) meant never. Neither block reads `D`.
+    */
+    /* docs drawer */
+    const doc = this.DOCS.filter(d => d.id === S.docs.id)[0] || this.DOCS[0];
+    V.docsOpen = S.docs.open;
+    V.docTitle = doc.title;
+    V.closeDocs = this.closeDocs;
+    V.drawerRef = (el) => { this._drawer = el; };
+    V.docBodyRef = (el) => { this._body = el; };
+    V.onDocScroll = this.onDocScroll;
+    V.docTabs = this.DOCS.map(d => ({
+      short: d.short, title: d.title, select: () => this.openDocs(d.id, d.sections[0].id),
+      style: "font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;border-radius:999px;padding:4px 10px;cursor:pointer;border:var(--bw) solid " + (d.id === doc.id ? "var(--ac)" : "var(--bd)") + ";background:" + (d.id === doc.id ? "var(--ac-dim)" : "transparent") + ";color:" + (d.id === doc.id ? "var(--ac)" : "var(--tx3)")
+    }));
+    V.docSearch = S.docs.search;
+    V.onDocSearch = this.onDocSearch;
+    const q = S.docs.search.trim().toLowerCase();
+    V.hasDocSearch = !!q;
+    const matchIn = (sec) => (sec.title + " " + sec.html).toLowerCase().indexOf(q) >= 0;
+    if (q) {
+      let mSec = 0, mHits = 0;
+      this.DOCS.forEach(d => d.sections.forEach(sec => {
+        const hay = (sec.title + " " + sec.html).toLowerCase();
+        let idx = hay.indexOf(q), n = 0;
+        while (idx >= 0) { n++; idx = hay.indexOf(q, idx + q.length); }
+        if (n) { mSec++; mHits += n; }
+      }));
+      V.docSearchSummary = mHits + " match" + (mHits === 1 ? "" : "es") + " in " + mSec + " section" + (mSec === 1 ? "" : "s");
+    } else V.docSearchSummary = "";
+    const secs = q ? doc.sections.filter(matchIn) : doc.sections;
+    V.toc = secs.map(sec => ({
+      title: sec.title,
+      go: () => this.scrollToSection(sec.id),
+      style: "display:block;width:100%;text-align:left;background:" + (S.docs.active === sec.id ? "var(--ac-dim)" : "transparent") + ";border:0;border-left:2px solid " + (S.docs.active === sec.id ? "var(--ac)" : "transparent") + ";padding:6px 8px 6px " + (6 + (sec.level - 1) * 14) + "px;cursor:pointer;font-size:11.5px;line-height:1.4;color:" + (S.docs.active === sec.id ? "var(--tx)" : "var(--tx2)")
+    }));
+    const h = React.createElement;
+    const hi_ = (html) => q ? html.replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"), '<mark style="background:var(--ac);color:var(--ac-tx)">$1</mark>') : html;
+    V.docBody = h("div", { key: doc.id + q, style: { display: "grid", gap: "26px" } }, secs.map(sec => h("section", { key: sec.id, "data-anchor": sec.id, style: { scrollMarginTop: "12px" } }, [
+      h("div", { key: "hd", style: { display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "10px" } }, [
+        h(sec.level === 1 ? "h2" : "h3", { key: "t", id: doc.id + "-" + sec.id, style: { margin: 0, fontSize: sec.level === 1 ? "17px" : "14px", fontWeight: 600, letterSpacing: "-.01em", color: "var(--tx)" } }, sec.title),
+        h("button", { key: "b", type: "button", onClick: () => this.copySectionLink(doc.id, sec.id), title: "Copy link to this section", "aria-label": "Copy link to " + sec.title, style: { fontFamily: "var(--mono)", fontSize: "10px", background: "transparent", border: "1px solid var(--bd)", borderRadius: "2px", padding: "1px 6px", cursor: "pointer", color: "var(--tx3)" } }, "link")
+      ]),
+      h("div", { key: "bd", style: { fontSize: "13px", lineHeight: 1.75, color: "var(--tx2)" }, dangerouslySetInnerHTML: { __html: hi_(sec.html) } })
+    ])));
+
+    /* report modal */
+    const R = S.report;
+    V.reportOpen = R.open; V.closeReport = this.closeReport;
+    V.modalRef = (el) => { this._modal = el; };
+    const fys = R.fys || [];
+    V.hasFys = fys.length > 0; V.noFys = R.fys !== null && fys.length === 0;
+    V.fyChips = fys.map(fy => ({
+      label: "FY " + fy, active: R.fy === fy,
+      select: () => this.setState(s => ({ report: Object.assign({}, s.report, { fy: fy, dl: null }) })),
+      style: "font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;border:var(--bw) solid " + (R.fy === fy ? "var(--ac)" : "var(--bd)") + ";background:" + (R.fy === fy ? "var(--ac-dim)" : "transparent") + ";color:" + (R.fy === fy ? "var(--ac)" : "var(--tx2)")
+    }));
+    V.manifest = [
+      { name: "00_summary.csv", desc: "Financial-year totals: realised P&L, funding, fees, turnover, and the arithmetic under each reading, unlabelled by preference." },
+      { name: "01_futures_trades.csv", desc: "One row per closed episode: asset, dates, consideration, cost of acquisition, income, FX rate and FX date." },
+      { name: "02_funding.csv", desc: "Every funding payment and receipt, in USD and INR, with the rate used." },
+      { name: "03_fees.csv", desc: "Venue fees by event, in USD and INR." },
+      { name: "04_cashflows.csv", desc: "Deposits and withdrawals of stablecoin, with gross consideration for TDS purposes." },
+      { name: "05_open_positions.csv", desc: "Positions still open at the financial-year boundary, marked as unrealised and excluded from every total." },
+      { name: "06_assumptions_and_notes.csv", desc: "Every assumption, convention and caveat used, so the sheets are self-describing." }
+    ];
+    V.zipDisabled = !R.fy || (R.dl && R.dl.k === "pending");
+    V.zipButtonStyle = "font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;border:0;border-radius:var(--r2);padding:11px 18px;cursor:" + (!R.fy ? "not-allowed" : "pointer") + ";background:" + (!R.fy ? "var(--s3)" : "var(--ac)") + ";color:" + (!R.fy ? "var(--tx3)" : "var(--ac-tx)");
+    V.downloadZip = this.downloadZip;
+    V.downloadLedgerCsv = this.downloadLedgerCsv; V.downloadVdaCsv = this.downloadVdaCsv; V.printDashboard = this.printDashboard;
+    V.hasDownloadState = !!R.dl;
+    V.downloadStateText = R.dl ? R.dl.t : "";
+    V.downloadStateStyle = "font-family:var(--mono);font-size:11.5px;padding:10px 12px;border-radius:var(--r2);border:var(--bw) solid " + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--bd)") + ";color:" + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--tx2)");
+
     if (!has) return V;
 
     const Ts = this.T_ORDER.map(k => Object.assign({ key: k }, D.treatments[k]));
@@ -1572,77 +1650,6 @@ class Component extends DCLogic {
         return { t: t, title: c.k + " = " + (raw === null || raw === undefined || raw === "" ? "not available" : String(raw)), style: tdBase + "text-align:" + align + ";color:" + color + ";font-family:" + (mono ? "var(--mono)" : "var(--sans)") };
       })
     }));
-
-    /* docs drawer */
-    const doc = this.DOCS.filter(d => d.id === S.docs.id)[0] || this.DOCS[0];
-    V.docsOpen = S.docs.open;
-    V.docTitle = doc.title;
-    V.closeDocs = this.closeDocs;
-    V.drawerRef = (el) => { this._drawer = el; };
-    V.docBodyRef = (el) => { this._body = el; };
-    V.onDocScroll = this.onDocScroll;
-    V.docTabs = this.DOCS.map(d => ({
-      short: d.short, title: d.title, select: () => this.openDocs(d.id, d.sections[0].id),
-      style: "font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;border-radius:999px;padding:4px 10px;cursor:pointer;border:var(--bw) solid " + (d.id === doc.id ? "var(--ac)" : "var(--bd)") + ";background:" + (d.id === doc.id ? "var(--ac-dim)" : "transparent") + ";color:" + (d.id === doc.id ? "var(--ac)" : "var(--tx3)")
-    }));
-    V.docSearch = S.docs.search;
-    V.onDocSearch = this.onDocSearch;
-    const q = S.docs.search.trim().toLowerCase();
-    V.hasDocSearch = !!q;
-    const matchIn = (sec) => (sec.title + " " + sec.html).toLowerCase().indexOf(q) >= 0;
-    if (q) {
-      let mSec = 0, mHits = 0;
-      this.DOCS.forEach(d => d.sections.forEach(sec => {
-        const hay = (sec.title + " " + sec.html).toLowerCase();
-        let idx = hay.indexOf(q), n = 0;
-        while (idx >= 0) { n++; idx = hay.indexOf(q, idx + q.length); }
-        if (n) { mSec++; mHits += n; }
-      }));
-      V.docSearchSummary = mHits + " match" + (mHits === 1 ? "" : "es") + " in " + mSec + " section" + (mSec === 1 ? "" : "s");
-    } else V.docSearchSummary = "";
-    const secs = q ? doc.sections.filter(matchIn) : doc.sections;
-    V.toc = secs.map(sec => ({
-      title: sec.title,
-      go: () => this.scrollToSection(sec.id),
-      style: "display:block;width:100%;text-align:left;background:" + (S.docs.active === sec.id ? "var(--ac-dim)" : "transparent") + ";border:0;border-left:2px solid " + (S.docs.active === sec.id ? "var(--ac)" : "transparent") + ";padding:6px 8px 6px " + (6 + (sec.level - 1) * 14) + "px;cursor:pointer;font-size:11.5px;line-height:1.4;color:" + (S.docs.active === sec.id ? "var(--tx)" : "var(--tx2)")
-    }));
-    const h = React.createElement;
-    const hi_ = (html) => q ? html.replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"), '<mark style="background:var(--ac);color:var(--ac-tx)">$1</mark>') : html;
-    V.docBody = h("div", { key: doc.id + q, style: { display: "grid", gap: "26px" } }, secs.map(sec => h("section", { key: sec.id, "data-anchor": sec.id, style: { scrollMarginTop: "12px" } }, [
-      h("div", { key: "hd", style: { display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "10px" } }, [
-        h(sec.level === 1 ? "h2" : "h3", { key: "t", id: doc.id + "-" + sec.id, style: { margin: 0, fontSize: sec.level === 1 ? "17px" : "14px", fontWeight: 600, letterSpacing: "-.01em", color: "var(--tx)" } }, sec.title),
-        h("button", { key: "b", type: "button", onClick: () => this.copySectionLink(doc.id, sec.id), title: "Copy link to this section", "aria-label": "Copy link to " + sec.title, style: { fontFamily: "var(--mono)", fontSize: "10px", background: "transparent", border: "1px solid var(--bd)", borderRadius: "2px", padding: "1px 6px", cursor: "pointer", color: "var(--tx3)" } }, "link")
-      ]),
-      h("div", { key: "bd", style: { fontSize: "13px", lineHeight: 1.75, color: "var(--tx2)" }, dangerouslySetInnerHTML: { __html: hi_(sec.html) } })
-    ])));
-
-    /* report modal */
-    const R = S.report;
-    V.reportOpen = R.open; V.closeReport = this.closeReport;
-    V.modalRef = (el) => { this._modal = el; };
-    const fys = R.fys || [];
-    V.hasFys = fys.length > 0; V.noFys = R.fys !== null && fys.length === 0;
-    V.fyChips = fys.map(fy => ({
-      label: "FY " + fy, active: R.fy === fy,
-      select: () => this.setState(s => ({ report: Object.assign({}, s.report, { fy: fy, dl: null }) })),
-      style: "font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;border:var(--bw) solid " + (R.fy === fy ? "var(--ac)" : "var(--bd)") + ";background:" + (R.fy === fy ? "var(--ac-dim)" : "transparent") + ";color:" + (R.fy === fy ? "var(--ac)" : "var(--tx2)")
-    }));
-    V.manifest = [
-      { name: "00_summary.csv", desc: "Financial-year totals: realised P&L, funding, fees, turnover, and the arithmetic under each reading, unlabelled by preference." },
-      { name: "01_futures_trades.csv", desc: "One row per closed episode: asset, dates, consideration, cost of acquisition, income, FX rate and FX date." },
-      { name: "02_funding.csv", desc: "Every funding payment and receipt, in USD and INR, with the rate used." },
-      { name: "03_fees.csv", desc: "Venue fees by event, in USD and INR." },
-      { name: "04_cashflows.csv", desc: "Deposits and withdrawals of stablecoin, with gross consideration for TDS purposes." },
-      { name: "05_open_positions.csv", desc: "Positions still open at the financial-year boundary, marked as unrealised and excluded from every total." },
-      { name: "06_assumptions_and_notes.csv", desc: "Every assumption, convention and caveat used, so the sheets are self-describing." }
-    ];
-    V.zipDisabled = !R.fy || (R.dl && R.dl.k === "pending");
-    V.zipButtonStyle = "font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;border:0;border-radius:var(--r2);padding:11px 18px;cursor:" + (!R.fy ? "not-allowed" : "pointer") + ";background:" + (!R.fy ? "var(--s3)" : "var(--ac)") + ";color:" + (!R.fy ? "var(--tx3)" : "var(--ac-tx)");
-    V.downloadZip = this.downloadZip;
-    V.downloadLedgerCsv = this.downloadLedgerCsv; V.downloadVdaCsv = this.downloadVdaCsv; V.printDashboard = this.printDashboard;
-    V.hasDownloadState = !!R.dl;
-    V.downloadStateText = R.dl ? R.dl.t : "";
-    V.downloadStateStyle = "font-family:var(--mono);font-size:11.5px;padding:10px 12px;border-radius:var(--r2);border:var(--bw) solid " + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--bd)") + ";color:" + (R.dl && R.dl.k === "err" ? "var(--neg)" : R.dl && R.dl.k === "ok" ? "var(--ac)" : "var(--tx2)");
 
     return V;
   }
