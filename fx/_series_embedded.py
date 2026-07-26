@@ -1,3 +1,21 @@
+"""
+fx/_series_embedded.py — GENERATED. DO NOT EDIT BY HAND.
+
+A verbatim copy of `fx/data/usdinr_reference.csv`, carried as a Python module so
+that serverless bundlers which trace imports (Vercel's Python builder) ship the
+FX series into the lambda. The CSV remains the source of truth; regenerate with
+
+    python -m fx.fetch_fx --update      (or --reseed, or --embed to only rebuild)
+
+`fx.embed.check()` asserts this file matches the CSV, and the test suite runs it,
+so a hand-edit or a forgotten regeneration fails the build rather than quietly
+serving stale rates.
+"""
+
+# SHA-256 of the CSV bytes this was generated from.
+CSV_SHA256 = "31af556e004230abf379ba148e4f98419a9f5ca40b042030dfd69be20271131f"
+
+CSV_TEXT = """\
 rate_date,rate,source,administrator,fetched_at_utc
 2018-07-10,68.7942,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
 2018-07-11,68.8290,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
@@ -1924,8 +1942,5 @@ rate_date,rate,source,administrator,fetched_at_utc
 2026-07-14,96.1138,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
 2026-07-15,96.2219,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
 2026-07-16,96.3172,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
-<<<<<<< HEAD
-2026-07-17,96.3665,frankfurter-fbil,FBIL,2026-07-26T19:44:43.070413+00:00
-=======
 2026-07-17,96.3665,frankfurter-fbil,FBIL,2026-07-26T20:07:26.734855+00:00
->>>>>>> worktree-vercel-deploy
+"""

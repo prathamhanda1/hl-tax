@@ -225,3 +225,64 @@ def test_attach_fx_columns_adds_all_columns(conv):
                 "fx_stale_grace"):
         assert col in res.columns
     assert res["fx_stale_grace"].tolist() == [False, True]  # 2nd row in grace
+
+
+# ===========================================================================
+# The embedded series copy (fx/embed.py)
+#
+# The deployed lambda reads the series from the embedded MODULE, not the CSV --
+# Vercel's Python builder traces imports and does not copy data files, so the
+# CSV never arrives (that is what made every /api/report return a 422 saying
+# "FX series file not found: /var/task/fx/data/usdinr_reference.csv"). These
+# tests guard the two ways that fallback could rot: drifting from the CSV, and
+# not being reachable at all.
+# ===========================================================================
+
+def test_embedded_series_matches_csv():
+    """The mirror is byte-identical to the CSV it claims to copy.
+
+    Fails if someone refreshes the series and commits only the CSV -- which
+    would deploy yesterday's rates while the repo showed today's.
+    """
+    from fx import embed
+    embed.check()          # raises AssertionError with a regenerate hint
+
+
+def test_embedded_series_is_reachable_and_parses():
+    from fx import embed
+    from fx.fx import RateSeries
+
+    text = embed.read_embedded()
+    assert text, "no embedded series: the deployed lambda would have no rates"
+    assert text.startswith("rate_date,rate,")
+
+    series = RateSeries.from_csv(config.FX_SERIES_FILE)
+    assert series.max_date() >= date(2026, 7, 17)
+
+
+def test_from_csv_falls_back_to_embedded_when_file_is_absent(tmp_path):
+    """The serverless case: no CSV on disk, series still loads.
+
+    Reproduces the deployed failure exactly -- point the reader at a path that
+    does not exist and require a working series rather than an FxError.
+    """
+    from fx.fx import RateSeries
+
+    missing = tmp_path / "not-deployed" / "usdinr_reference.csv"
+    assert not missing.exists()
+
+    series = RateSeries.from_csv(missing)
+    on_disk = RateSeries.from_csv(config.FX_SERIES_FILE)
+    assert series.max_date() == on_disk.max_date()
+    assert series.min_date() == on_disk.min_date()
+    assert series.rate_on(series.max_date()) == on_disk.rate_on(on_disk.max_date())
+
+
+def test_from_csv_still_raises_when_nothing_is_available(tmp_path, monkeypatch):
+    """No CSV and no embedded copy is still a loud FxError, not a silent zero."""
+    import fx.embed as embed_mod
+    from fx.fx import RateSeries, FxError
+
+    monkeypatch.setattr(embed_mod, "_embedded", None)
+    with pytest.raises(FxError, match="no embedded copy"):
+        RateSeries.from_csv(tmp_path / "nope.csv")

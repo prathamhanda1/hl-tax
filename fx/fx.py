@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import bisect
 import csv
+import io
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
@@ -115,20 +116,33 @@ class RateSeries:
     def from_csv(cls, path: Path | str) -> "RateSeries":
         """Load a `rate_date,rate,source,administrator,fetched_at_utc` CSV. Only
         rate_date/rate/administrator are needed for lookup; the rest is
-        provenance the reader carries but does not use."""
+        provenance the reader carries but does not use.
+
+        Falls back to the embedded copy (fx/embed.py) when the CSV is absent.
+        That happens on a serverless host whose bundler traces imports and so
+        never copies the data file; the embedded module is the same series,
+        checksummed against this CSV and regenerated with it. The CSV wins
+        whenever it exists, so local and container runs are unaffected.
+        """
         path = Path(path)
-        if not path.exists():
+        text: str | None = None
+        if path.exists():
+            text = path.read_text(encoding="utf-8")
+        else:
+            from fx.embed import read_embedded     # noqa: PLC0415 (fallback only)
+            text = read_embedded()
+        if text is None:
             raise FxError(
-                f"FX series file not found: {path}. Build it with "
-                f"`python -m fx.fetch_fx --reseed` (see fx/REFRESH.md)."
+                f"FX series file not found: {path}, and no embedded copy was "
+                f"bundled. Build it with `python -m fx.fetch_fx --reseed` "
+                f"(see fx/REFRESH.md)."
             )
         rates: dict[date, tuple[float, str]] = {}
-        with path.open("r", encoding="utf-8", newline="") as f:
-            for row in csv.DictReader(f):
-                d = date.fromisoformat(row["rate_date"].strip())
-                rate = float(row["rate"])
-                admin = (row.get("administrator") or "").strip() or "FBIL"
-                rates[d] = (rate, admin)
+        for row in csv.DictReader(io.StringIO(text)):
+            d = date.fromisoformat(row["rate_date"].strip())
+            rate = float(row["rate"])
+            admin = (row.get("administrator") or "").strip() or "FBIL"
+            rates[d] = (rate, admin)
         return cls(rates)
 
     def min_date(self) -> date:

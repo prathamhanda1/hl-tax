@@ -3,9 +3,9 @@
  "coverage_start": "2018-07-10",
  "coverage_end": "2026-07-17",
  "row_count": 1926,
- "last_fetch_utc": "2026-07-26T19:44:43.081552+00:00",
+ "last_fetch_utc": "2026-07-26T20:07:26.745869+00:00",
  "upstream_end": "2026-07-17",
- "seed_sha256": "61eb2a72f5fc43e417ae396365a98f338eddf9fc2fe3d2da344389893a86c64e",
+ "seed_sha256": "ea1fad6a3c4f192c907b583b92e3e4d66329117ebf6b14e8fae715a43afd6ef1",
  "sources_present": [
   "frankfurter-fbil"
  ],

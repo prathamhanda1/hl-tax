@@ -39,6 +39,7 @@ from datetime import date, datetime, timedelta, timezone
 import requests
 
 import config
+from fx import embed
 
 _RATES_ENDPOINT = f"{config.FX_PROVIDER_URL}/v2/rates"
 _HANDOVER = date.fromisoformat(config.FX_ADMIN_HANDOVER_DATE)
@@ -162,6 +163,11 @@ def _write_series(records: list[dict]) -> None:
         w.writeheader()
         w.writerows(records)
     tmp.replace(p)
+
+    # Regenerate the embedded copy in the same breath as the CSV, so the two
+    # cannot drift: a refresh that updated only the file would leave the
+    # deployed series behind without anything saying so. See fx/embed.py.
+    embed.generate(p)
 
 
 def _records_from(rows: list[tuple[date, float]], source: str,
@@ -364,6 +370,21 @@ def cmd_verify(sample: int = 10) -> int:
     return 0
 
 
+def cmd_embed() -> int:
+    """Rebuild fx/_series_embedded.py from the CSV. No network, no series
+    change — the escape hatch for when the two have drifted (a hand-edited CSV,
+    a merge that took one side) and for verifying what will ship."""
+    p = config.FX_SERIES_FILE
+    if not p.exists():
+        print(f"ERROR: no series at {p}; run --reseed first.", file=sys.stderr)
+        return 1
+    out = embed.generate(p)
+    embed.check(p)
+    rows = max(0, len(embed.read_embedded().splitlines()) - 1)
+    print(f"Embedded {rows} rows -> {out}")
+    return 0
+
+
 def _cli() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -373,6 +394,8 @@ def _cli() -> int:
                    help="reconcile a sample vs upstream")
     g.add_argument("--reseed", action="store_true",
                    help="rebuild the whole series (guarded)")
+    g.add_argument("--embed", action="store_true",
+                   help="regenerate the embedded copy from the CSV (no network)")
     ap.add_argument("--force", action="store_true",
                     help="with --reseed: overwrite an existing series")
     ap.add_argument("--sample", type=int, default=10,
@@ -387,6 +410,8 @@ def _cli() -> int:
             return cmd_verify(args.sample)
         if args.reseed:
             return cmd_reseed(force=args.force)
+        if args.embed:
+            return cmd_embed()
     except (FxFetchError, requests.RequestException) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
