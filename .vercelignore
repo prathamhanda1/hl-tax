@@ -1,0 +1,13 @@
+# Keep the serverless bundle small and free of anything address-keyed.
+# NOTE: fx/data/ must NOT be listed here — the FX rate series ships with the
+# code and the engine refuses to price events without it.
+.git/
+.claude/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+tests/
+docs/
+hl frontend tax/
+webapp/Dockerfile

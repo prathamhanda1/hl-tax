@@ -11,16 +11,28 @@ Rules (week2_master_plan.md Part 3):
   was computed under.
 """
 
+import os
 from pathlib import Path
 
 # =============================================================================
 # Paths (defined first so later sections can build file paths from them)
 # =============================================================================
 
-DATA_DIR = Path("data")
+# Anchored to this file, not to the current working directory. A serverless
+# host invokes the app from a directory of its choosing, and a relative "data"
+# would then resolve somewhere unintended — or not at all.
+REPO_ROOT = Path(__file__).resolve().parent
+
+# The only WRITTEN directory in the project. Overridable because serverless
+# filesystems are read-only apart from /tmp: set HL_TAX_DATA_DIR=/tmp/hl-tax
+# there. Local and container runs need no override and behave exactly as before.
+DATA_DIR = Path(os.environ.get("HL_TAX_DATA_DIR") or (REPO_ROOT / "data"))
 RAW_CACHE_DIR = DATA_DIR / "raw"      # fetch layer is the only writer
 GLOBAL_CACHE_DIR = RAW_CACHE_DIR / "_global"  # address-independent: perpDexs, meta
-FX_DATA_DIR = Path("fx") / "data"     # cached USD/INR rate series (Phase 4)
+
+# READ-ONLY, and always shipped with the code: the FX series must be found
+# whatever the working directory, so it is anchored to the repo, never to $PWD.
+FX_DATA_DIR = REPO_ROOT / "fx" / "data"   # cached USD/INR rate series (Phase 4)
 
 # =============================================================================
 # API (Hyperliquid info endpoint)
