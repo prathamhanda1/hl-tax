@@ -264,7 +264,7 @@ FX_PUBLICATION_CUTOFF_IST = "13:30"
 # Beyond the grace window, the lookup refuses and demands a refresh instead of
 # guessing. 5 calendar days is a reasoned operational default, not a verified
 # holiday-calendar fact.
-FX_MAX_STALENESS_DAYS = 5
+FX_MAX_STALENESS_DAYS = 10
 
 # --- Rate source: the FBIL reference rate, via Frankfurter -------------------
 # v1 uses the FBIL USD/INR REFERENCE RATE — the benchmark Indian income-tax
