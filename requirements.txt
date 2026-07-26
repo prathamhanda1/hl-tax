@@ -1,4 +1,11 @@
+# Engine dependencies.
+#
+# fastapi is listed here, not only in webapp/requirements.txt, because Vercel
+# installs from this file alone when it builds the serverless function. The
+# split still matters locally: webapp/requirements.txt adds uvicorn — the
+# long-running local server — which a serverless host never uses.
 requests
 pandas
 pytest
 jinja2
+fastapi
