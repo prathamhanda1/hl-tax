@@ -64,13 +64,20 @@ def _payload(**over) -> dict:
 
 
 class _Spy:
-    """Stands in for build_result and records how it was called."""
+    """Stands in for a pipeline entry point and records how it was called.
+
+    Accepts extra positional arguments because ca_report_bundle takes the
+    financial year that way; `calls` keeps the (address, kwargs) shape the
+    /api/report tests read, and `positional` keeps the rest.
+    """
 
     def __init__(self, result=None, raises=None):
-        self.result, self.raises, self.calls = result, raises, []
+        self.result, self.raises = result, raises
+        self.calls, self.positional = [], []
 
-    def __call__(self, address, **kw):
+    def __call__(self, address, *args, **kw):
         self.calls.append((address, kw))
+        self.positional.append(args)
         if self.raises is not None:
             raise self.raises
         return self.result if self.result is not None else _payload()
@@ -274,23 +281,105 @@ def test_refresh_is_ignored_and_disclosed_when_disabled(client, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# CA report (Phase 9 pending).
+# CA report (Phase 9). Same discipline as above: the pipeline entry points are
+# stubbed, so these tests are about status codes and headers, not about numbers.
 # ---------------------------------------------------------------------------
 
-def test_fys_degrades_to_an_empty_list_not_an_error(client):
-    """The modal renders its 'no financial years' state from a 200; an error
-    here would show a red failure for a feature that simply is not built."""
+def test_fys_returns_the_years_the_engine_found(client, monkeypatch):
+    spy = _Spy(["2026-27", "2025-26"])
+    monkeypatch.setattr(server, "ca_report_fys", spy)
     r = client.get("/api/ca-report/fys", params={"address": ADDRESS})
     assert r.status_code == 200
     body = r.json()
-    assert body["fys"] == [] and body["available"] is False
-    assert "Phase 9" in body["detail"]
+    assert body["fys"] == ["2026-27", "2025-26"]
+    assert body["available"] is True and body["detail"] is None
+    assert spy.calls[0][0] == ADDRESS
 
 
-def test_ca_report_bundle_is_501_while_pending(client):
+def test_no_activity_is_an_empty_list_not_an_error(client, monkeypatch):
+    """An address that traded in no financial year is a true empty answer, and
+    the modal must render its empty state from a 200 rather than a red failure.
+    """
+    monkeypatch.setattr(server, "ca_report_fys", _Spy([]))
+    r = client.get("/api/ca-report/fys", params={"address": ADDRESS})
+    assert r.status_code == 200
+    assert r.json() == {"fys": [], "available": True, "detail": None}
+
+
+def test_fys_maps_the_two_engine_refusals_to_their_status_codes(
+        client, monkeypatch):
+    from fetch.fetch_user import BadAddressError
+    from fx.fx import FxError
+
+    monkeypatch.setattr(server, "ca_report_fys",
+                        _Spy(raises=BadAddressError("nope")))
+    assert client.get("/api/ca-report/fys",
+                      params={"address": ADDRESS}).status_code == 400
+
+    monkeypatch.setattr(server, "ca_report_fys",
+                        _Spy(raises=FxError("no rate for 2026-07-20")))
+    r = client.get("/api/ca-report/fys", params={"address": ADDRESS})
+    assert r.status_code == 422
+    assert "refusing to produce a partial tax number" in r.json()["detail"]
+
+
+def test_bundle_is_served_as_a_named_zip_attachment(client, monkeypatch):
+    blob = b"PK\x03\x04 pretend zip"
+    name = f"ca_report_{ADDRESS}_FY2025-26.zip"
+    spy = _Spy((blob, name))
+    monkeypatch.setattr(server, "ca_report_bundle", spy)
     r = client.get("/api/ca-report", params={"address": ADDRESS, "fy": "2025-26"})
-    assert r.status_code == 501
-    assert isinstance(r.json()["detail"], str)
+    assert r.status_code == 200
+    assert r.content == blob
+    assert r.headers["content-type"] == "application/zip"
+    assert r.headers["content-disposition"] == f'attachment; filename="{name}"'
+    # The address, the year and the on-ramp slot reach the pipeline unchanged.
+    assert spy.calls[0][0] == ADDRESS
+    assert spy.positional[0] == ("2025-26",)
+    assert spy.calls[0][1]["onramp_cost"] is None
+
+
+def test_onramp_cost_reaches_the_bundle(client, monkeypatch):
+    spy = _Spy((b"zip", "x.zip"))
+    monkeypatch.setattr(server, "ca_report_bundle", spy)
+    client.get("/api/ca-report",
+               params={"address": ADDRESS, "fy": "2025-26",
+                       "onramp_cost": 50000})
+    assert spy.calls[0][1]["onramp_cost"] == 50000.0
+
+
+def test_a_malformed_financial_year_is_a_400_not_a_500(client, monkeypatch):
+    from present.ca_report import FyFormatError
+
+    monkeypatch.setattr(server, "ca_report_bundle",
+                        _Spy(raises=FyFormatError("not a financial year")))
+    r = client.get("/api/ca-report", params={"address": ADDRESS, "fy": "2025"})
+    assert r.status_code == 400
+    assert "financial year" in r.json()["detail"]
+
+
+def test_bundle_maps_fx_refusal_to_422_and_the_unforeseen_to_500(
+        client, monkeypatch):
+    from fx.fx import FxError
+
+    monkeypatch.setattr(server, "ca_report_bundle",
+                        _Spy(raises=FxError("no rate for 2026-07-20")))
+    assert client.get("/api/ca-report",
+                      params={"address": ADDRESS, "fy": "2025-26"}
+                      ).status_code == 422
+
+    monkeypatch.setattr(server, "ca_report_bundle",
+                        _Spy(raises=RuntimeError("boom")))
+    r = client.get("/api/ca-report", params={"address": ADDRESS, "fy": "2025-26"})
+    assert r.status_code == 500
+    assert "RuntimeError" in r.json()["detail"]
+    assert "boom" not in r.json()["detail"]        # no internals on the wire
+
+
+def test_meta_advertises_the_bundle_and_its_sheet_count(client):
+    body = client.get("/api/meta").json()
+    assert body["ca_report_available"] is True
+    assert body["ca_report_sheets"] == 7
 
 
 # ---------------------------------------------------------------------------

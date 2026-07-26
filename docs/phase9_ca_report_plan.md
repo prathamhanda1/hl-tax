@@ -1,10 +1,58 @@
 # Phase 9 — CA Tax Report (FY-scoped CSV bundle)
 
-**Status:** planned, not built.
-**Depends on:** Phases 1–6 (complete). **Blocks nothing** — Phase 8 (frontend) can
-proceed in parallel; this phase defines the API contract Phase 8 wires a button to.
+**Status:** BUILT. `present/ca_report.py`, gated by `tests/test_ca_report.py`
+(38 tests), wired to the CLI (`--ca-report FY|all`) and to both HTTP routes.
+**Depends on:** Phases 1–6 (complete). **Blocks nothing.**
+
+## As built — where the implementation diverges from the plan below
+
+The sheet specifications, the neutrality rule and the seven rules under "Rules
+the implementation must not break" were followed as written. Five things landed
+differently, each for a reason worth keeping:
+
+1. **The address-level entry points live in `webapp/pipeline.py`, not in
+   `present/ca_report.py`.** The plan gave `available_fys(ledger)` a frame and
+   the HTTP contract an address. Both are now true: `ca_report.available_fys`
+   stays pure and frame-shaped, while `pipeline.ca_report_fys(address)` and
+   `pipeline.ca_report_bundle(address, fy)` do the fetching. That keeps the
+   presentation layer free of network code and gives the two routes the same
+   engine prefix `/api/report` uses — extracted as `pipeline.run_engine`, which
+   `build_result` now also calls, so the JSON payload and the bundle can never
+   disagree about the same address.
+
+2. **An unknown FY is not a 404.** The plan's error table said it should be, but
+   rule 5 says an empty FY is a valid answer, and the two cannot both hold. A
+   well-formed year with no activity returns a real bundle whose sheets are
+   headers-only and whose summary says the window is empty; only an unparseable
+   year label is an error, and it is a 400 (`FyFormatError`). A missing file
+   reads as a broken tool; an empty one reads as the true statement it is.
+
+3. **`ca_report_frames` takes an optional `funding_ledger`.** `funding_rate` and
+   `position_size_szi` exist only upstream — the INR ledger flattens them away —
+   so sheet 02 cannot fill those two columns from the ledger alone. Without the
+   frame they are blank rather than invented.
+
+4. **The on-ramp cost travels in `meta`, and the global is never read.** The
+   plan flagged `config.ON_RAMP_USDC_COST_INR` as a concurrency hazard to be
+   read once at frame-build time. Stronger and simpler: `ca_report.py` never
+   touches the global at all, so the race cannot reach these sheets.
+
+5. **Sheet 05 is honest about which snapshot it is.** The plan said "positions
+   open at the FY end". Reconstructing that would be *computing*, which this
+   layer must not do. The sheet lists positions open at the end of the available
+   data whose open date precedes the window end, and sheet 06 says exactly that,
+   pointing at `--as-of <FY end>` for a true year-end snapshot.
+
+Two extras beyond the plan, both from `docs/phase5data_dcx.md`: sheet 01 carries
+`transaction_id` / `crypto_pair` / `base_currency` / `type_of_transaction` so the
+sheet reads like the Futures Orders sheet a CA already processes, and sheet 04
+carries a nil `tds_inr` column — CoinDCX's FAQ is explicit that no deduction
+applies to futures and options, and stating the zero with its reason is more
+useful to a CA than omitting the column.
 
 ---
+
+## The original plan, kept for the reasoning
 
 ## Context
 

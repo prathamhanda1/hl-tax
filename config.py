@@ -429,4 +429,14 @@ REPORT_USD_DECIMALS = 6
 INTERNAL_TIMEZONE = "UTC"
 DISPLAY_TIMEZONE = "Asia/Kolkata"
 
+# --- Phase 9: the CA report bundle -------------------------------------------
+# An Indian financial year runs 1 Apr -> 31 Mar and its boundaries are IST
+# instants, not UTC ones: a trade at 2025-04-01 03:00 IST is 2025-03-31 21:30
+# UTC and still belongs to FY 2025-26. The FY selector therefore evaluates in
+# DISPLAY_TIMEZONE, and every sheet carries BOTH timestamps so a CA reads the
+# Indian date while the audit trail keeps the UTC instant.
+FY_TIMEZONE = DISPLAY_TIMEZONE          # "Asia/Kolkata" — FY boundaries are IST
+FY_START_MONTH = 4                      # Indian FY: 1 Apr -> 31 Mar
+CA_REPORT_ROUND_INR = True              # round INR columns for CA readability
+
 # (Path constants are defined at the top of this file.)

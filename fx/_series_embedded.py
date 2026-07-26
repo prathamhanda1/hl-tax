@@ -13,7 +13,7 @@ serving stale rates.
 """
 
 # SHA-256 of the CSV bytes this was generated from.
-CSV_SHA256 = "31af556e004230abf379ba148e4f98419a9f5ca40b042030dfd69be20271131f"
+CSV_SHA256 = "97d4850dfdad72a2da6dd2ff97082dfedbbe8c456838dd43b536b305d06c0425"
 
 CSV_TEXT = """\
 rate_date,rate,source,administrator,fetched_at_utc
@@ -1942,5 +1942,5 @@ rate_date,rate,source,administrator,fetched_at_utc
 2026-07-14,96.1138,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
 2026-07-15,96.2219,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
 2026-07-16,96.3172,frankfurter-fbil,FBIL,2026-07-23T10:44:05.896950+00:00
-2026-07-17,96.3665,frankfurter-fbil,FBIL,2026-07-26T20:07:26.734855+00:00
+2026-07-17,96.3665,frankfurter-fbil,FBIL,2026-07-26T19:44:43.070413+00:00
 """

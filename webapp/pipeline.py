@@ -52,7 +52,7 @@ from __future__ import annotations
 
 import math
 import threading
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -340,6 +340,138 @@ def build_payload(
 
 
 # ---------------------------------------------------------------------------
+# run_engine — the engine prefix every artifact shares.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EngineRun:
+    """Everything the engine produced for one address, before any presentation.
+
+    Exists so the JSON payload and the Phase 9 CA bundle run the SAME
+    fetch -> load -> reconstruct -> fx -> assemble prefix rather than two
+    near-copies of it that could drift into disagreeing about the same address.
+    """
+    address: str
+    ledger: pd.DataFrame
+    closing_events: pd.DataFrame
+    open_positions: pd.DataFrame
+    funding_ledger: pd.DataFrame
+    warnings: list
+    window_counts: dict
+    empty: bool
+    fx_convention: str
+    as_of: object
+
+
+def run_engine(address: str, *, refresh: bool = False, as_of=None) -> EngineRun:
+    """Mirrors main.run() step for step (main.py:50-110) and stops just short of
+    interpret(): fetch -> load -> apply cutoff -> reconstruct -> assemble.
+
+    Raises BadAddressError (bad input) and FxError (the engine refusing to price
+    events it has no rate for, rather than emit a partial tax number). The HTTP
+    layer turns those into 400 and 422; nothing is caught here.
+    """
+    from fetch.fetch_user import fetch_all_for_address, normalize_address
+    from load.load import load_raw
+    from reconstruct.funding import reconstruct_funding
+    from reconstruct.positions import reconstruct_positions
+    from fx.fx import default_converter
+    from interpret.assemble import build_inr_ledger
+    import main as _main   # reuse the CLI cutoff filter, no reimplementation
+
+    address = normalize_address(address)
+    as_of_ts = normalize_as_of(as_of)
+
+    # 1 — FETCH (the only network step; cache-first under data/raw/<address>/).
+    raw = fetch_all_for_address(address, refresh=refresh)
+
+    # 2 — LOAD, then bound the window exactly as the --as-of flag does.
+    loaded = load_raw(raw, account=address)
+    fills, funding_df, ledger_df = _main._apply_cutoff(loaded, as_of_ts)
+    warnings = list(loaded.warnings)
+    window_counts = {
+        "fills": len(fills), "funding": len(funding_df), "ledger": len(ledger_df),
+    }
+    # main.run own emptiness test: no fills AND no cashflows in the window.
+    empty = (not len(fills)) and (not len(ledger_df))
+
+    # 3 — RECONSTRUCT.
+    rec = reconstruct_positions(fills)
+    funding_ledger = reconstruct_funding(funding_df)
+    warnings += list(rec.warnings)
+
+    # 4 + 5 — FX + ASSEMBLE (the single USD->INR multiplication, upstream).
+    converter = default_converter()
+    ledger = build_inr_ledger(
+        rec.closing_events, funding_ledger, ledger_df, converter)
+
+    return EngineRun(
+        address=address,
+        ledger=ledger,
+        closing_events=rec.closing_events,
+        open_positions=rec.open_positions,
+        funding_ledger=funding_ledger,
+        warnings=warnings,
+        window_counts=window_counts,
+        empty=empty,
+        fx_convention=converter.convention,
+        as_of=as_of_ts,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 9 — the CA bundle, over HTTP. Same rule as the rest of this module: no
+# report logic here, only the wiring between the engine and present.ca_report.
+# ---------------------------------------------------------------------------
+
+def ca_report_fys(address: str, *, refresh: bool = False, as_of=None) -> list[str]:
+    """The financial years this address has any activity in, most recent first.
+
+    Backs the modal year picker. An address with no activity returns [], which
+    is a true answer and not an error — the caller renders an empty state.
+    """
+    from present.ca_report import available_fys
+
+    return available_fys(run_engine(address, refresh=refresh, as_of=as_of).ledger)
+
+
+def ca_report_bundle(
+    address: str,
+    fy: str | None,
+    *,
+    refresh: bool = False,
+    as_of=None,
+    onramp_cost: float | None = None,
+) -> tuple[bytes, str]:
+    """(zip bytes, filename) for one financial year.
+
+    Bytes rather than a path: a serverless filesystem is read-only outside /tmp,
+    and there is nothing here worth keeping between requests anyway.
+
+    The on-ramp cost is read ONCE, here, and travels in `meta` — the CA bundle
+    never touches config.ON_RAMP_USDC_COST_INR, so the mutated-global race that
+    build_payload has to lock around cannot reach these sheets at all.
+    """
+    from present.ca_report import (
+        ca_report_frames, ca_report_zip_bytes, zip_filename,
+    )
+
+    run = run_engine(address, refresh=refresh, as_of=as_of)
+    meta = {
+        "address": run.address,
+        "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "fx_convention": run.fx_convention,
+        "cost_basis_convention": config.COST_BASIS_CONVENTION,
+        "as_of": _iso_date(run.as_of),
+        "onramp_cost_inr": float(onramp_cost) if onramp_cost is not None else None,
+    }
+    frames = ca_report_frames(
+        run.closing_events, run.open_positions, run.ledger, meta,
+        fy=fy, warnings=run.warnings, funding_ledger=run.funding_ledger)
+    return ca_report_zip_bytes(frames), zip_filename(run.address, fy)
+
+
+# ---------------------------------------------------------------------------
 # build_result — the function Phase B calls.
 # ---------------------------------------------------------------------------
 
@@ -357,10 +489,9 @@ def build_result(
 ) -> dict:
     """The whole pipeline for one PUBLIC address, in memory, as a JSON-safe dict.
 
-    Mirrors `main.run()` (main.py:50-133) exactly: normalize_address ->
-    fetch_all_for_address -> load_raw -> _apply_cutoff -> reconstruct_positions
-    / reconstruct_funding -> build_inr_ledger -> interpret. No tax logic lives
-    here.
+    `run_engine` does the fetch -> load -> reconstruct -> assemble prefix,
+    mirroring `main.run()` (main.py:50-110); `build_payload` does interpret and
+    serialization. No tax logic lives in either.
 
     READ-ONLY, ALWAYS. The only account input is a public address. There is no
     parameter here — and never will be — for a private key or API secret.
@@ -369,56 +500,22 @@ def build_result(
     price recent events rather than emit a partial tax number); Phase B turns
     those into 400 and 422.
     """
-    from fetch.fetch_user import fetch_all_for_address, normalize_address
-    from load.load import load_raw
-    from reconstruct.funding import reconstruct_funding
-    from reconstruct.positions import reconstruct_positions
-    from fx.fx import default_converter
-    from interpret.assemble import build_inr_ledger
-    import main as _cli   # reuse the CLI's own cutoff filter, no reimplementation
-
-    address = normalize_address(address)
-    as_of_ts = normalize_as_of(as_of)
-
-    # 1 — FETCH (the only network step; cache-first under data/raw/<address>/).
-    raw = fetch_all_for_address(address, refresh=refresh)
-
-    # 2 — LOAD, then bound the window exactly as the --as-of flag does.
-    loaded = load_raw(raw, account=address)
-    fills, funding_df, ledger_df = _cli._apply_cutoff(loaded, as_of_ts)
-    warnings = list(loaded.warnings)
-    window_counts = {
-        "fills": len(fills), "funding": len(funding_df), "ledger": len(ledger_df),
-    }
-    # main.run's own emptiness test: no fills AND no cashflows in the window.
-    empty = (not len(fills)) and (not len(ledger_df))
-
-    # 3 — RECONSTRUCT.
-    rec = reconstruct_positions(fills)
-    funding_ledger = reconstruct_funding(funding_df)
-    warnings += list(rec.warnings)
-
-    # 4 + 5 — FX + ASSEMBLE (the single USD->INR multiplication, upstream).
-    converter = default_converter()
-    ledger = build_inr_ledger(
-        rec.closing_events, funding_ledger, ledger_df, converter)
-
-    # 6 + 7 — INTERPRET + serialize.
+    run = run_engine(address, refresh=refresh, as_of=as_of)
     return build_payload(
-        address,
-        ledger,
-        warnings=warnings,
-        open_positions=rec.open_positions,
-        fx_convention=converter.convention,
-        as_of=as_of_ts,
+        run.address,
+        run.ledger,
+        warnings=run.warnings,
+        open_positions=run.open_positions,
+        fx_convention=run.fx_convention,
+        as_of=run.as_of,
         onramp_cost=onramp_cost,
         salary_income_inr=salary_income_inr,
         other_head_income_inr=other_head_income_inr,
         assumptions=assumptions,
         preview_rows=preview_rows,
         include_line_items=include_line_items,
-        empty=empty,
-        window_counts=window_counts,
+        empty=run.empty,
+        window_counts=run.window_counts,
         refresh=refresh,
     )
 

@@ -65,6 +65,8 @@ from webapp.pipeline import (
     LEDGER_PREVIEW_COLUMNS,
     TREATMENT_ORDER,
     build_result,
+    ca_report_bundle,
+    ca_report_fys,
     normalize_as_of,
 )
 
@@ -345,25 +347,14 @@ def _fx_detail(exc: Exception) -> str:
 
 
 # ---------------------------------------------------------------------------
-# CA report (Phase 9). The dashboard's modal calls both of these; until
-# present/ca_report.py exists they answer honestly rather than 404.
+# CA report (Phase 9) — the financial-year CSV bundle.
+#
+# Both routes run the same engine prefix as /api/report and then hand off to
+# present.ca_report. No report logic lives here: this layer picks status codes
+# and nothing else.
 # ---------------------------------------------------------------------------
 
-def _ca_report_module():
-    """Return present.ca_report once Phase 9 lands, else None. Imported per
-    call so this server picks the feature up without an edit here."""
-    try:
-        from present import ca_report          # type: ignore
-        return ca_report
-    except ImportError:
-        return None
-
-
-CA_REPORT_PENDING = (
-    "The CA report bundle is Phase 9 and is not built yet. Everything on this "
-    "page is already downloadable: use the ledger and Schedule-VDA CSV buttons "
-    "under the tables, or print to PDF."
-)
+CA_SHEET_COUNT = 7
 
 
 @app.get("/api/ca-report/fys", response_model=None,
@@ -372,68 +363,90 @@ async def api_ca_report_fys(
     request: Request,
     address: str = Query(..., description="public Hyperliquid address (0x…)"),
 ) -> JSONResponse:
-    """200 with an empty list while Phase 9 is pending, so the modal renders
-    its 'no financial years' state instead of an error. `available` says which
-    world you are in."""
-    mod = _ca_report_module()
-    if mod is None or not hasattr(mod, "available_fys"):
-        return JSONResponse(content={
-            "fys": [], "available": False, "detail": CA_REPORT_PENDING})
+    """The years this address has any activity in, most recent first.
 
-    from fetch.fetch_user import BadAddressError
-    _rate_limit(request)
-    try:
-        fys = await run_in_threadpool(mod.available_fys, address)
-    except BadAddressError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:                      # noqa: BLE001
-        log.exception("available_fys failed for %r", address)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Could not list financial years ({type(exc).__name__}).",
-        ) from exc
-    return JSONResponse(content={
-        "fys": list(fys), "available": True, "detail": None})
-
-
-@app.get("/api/ca-report", response_model=None,
-         summary="CA report bundle (ZIP) — Phase 9")
-async def api_ca_report(
-    request: Request,
-    address: str = Query(..., description="public Hyperliquid address (0x…)"),
-    fy: str = Query(..., description="financial year, e.g. 2025-26"),
-):
-    """501 until Phase 9 ships `present.ca_report.build_bundle`. The contract
-    is already fixed in docs/phase9_ca_report_plan.md; wiring it here is a
-    few lines, not a redesign."""
-    mod = _ca_report_module()
-    if mod is None or not hasattr(mod, "build_bundle"):
-        raise HTTPException(status_code=501, detail=CA_REPORT_PENDING)
-
+    An empty list is a TRUE answer (this address traded in no financial year),
+    not a failure, and it is deliberately distinguishable from a failure: the
+    modal branches on `available`, so it can say "no activity" and "could not
+    look this up" as the different things they are.
+    """
     from fetch.fetch_user import BadAddressError
     from fx.fx import FxError
-    from fastapi.responses import Response
 
     _rate_limit(request)
     if not _REPORT_SLOTS.acquire(blocking=False):
         raise HTTPException(status_code=503, detail="Server busy; retry.",
                             headers={"Retry-After": "5"})
     try:
-        blob = await run_in_threadpool(mod.build_bundle, address, fy)
+        fys = await run_in_threadpool(ca_report_fys, address)
     except BadAddressError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FxError as exc:
         raise HTTPException(status_code=422, detail=_fx_detail(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:                      # noqa: BLE001
-        log.exception("ca-report failed for %r fy=%r", address, fy)
+        log.exception("ca-report/fys failed for %r", address)
         raise HTTPException(
             status_code=500,
-            detail=f"Could not build the {fy} bundle ({type(exc).__name__}).",
+            detail=f"Could not list financial years for this address "
+                   f"({type(exc).__name__}).",
         ) from exc
     finally:
         _REPORT_SLOTS.release()
 
-    name = f"hl-tax-{str(address)[:8]}-{fy}.zip"
+    return JSONResponse(content={
+        "fys": list(fys), "available": True, "detail": None})
+
+
+@app.get("/api/ca-report", response_model=None,
+         summary="CA report bundle (ZIP of CSVs) for one financial year")
+async def api_ca_report(
+    request: Request,
+    address: str = Query(..., description="public Hyperliquid address (0x…)"),
+    fy: str = Query(..., description="financial year, e.g. 2025-26"),
+    onramp_cost: float | None = Query(
+        None, description="your INR cost of acquiring the USDC. Recorded in the "
+                          "notes sheet; used in none of the arithmetic"),
+):
+    """The ZIP, streamed from memory.
+
+    A well-formed year with no activity is NOT a 404: it returns a valid bundle
+    whose sheets are headers-only and whose summary says the window is empty. A
+    missing file reads as a broken tool; an empty one reads as the true
+    statement it is. Only an unparseable year label is a 400.
+    """
+    from fetch.fetch_user import BadAddressError
+    from fx.fx import FxError
+    from fastapi.responses import Response
+    from present.ca_report import FyFormatError
+
+    _rate_limit(request)
+    if not _REPORT_SLOTS.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Server busy; retry.",
+                            headers={"Retry-After": "5"})
+    try:
+        blob, name = await run_in_threadpool(
+            ca_report_bundle, address, fy, onramp_cost=onramp_cost)
+    except FyFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except BadAddressError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FxError as exc:
+        raise HTTPException(status_code=422, detail=_fx_detail(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:                      # noqa: BLE001
+        log.exception("ca-report failed for %r fy=%r", address, fy)
+        raise HTTPException(
+            status_code=500,
+            detail=f"The engine failed while building the {fy} bundle "
+                   f"({type(exc).__name__}). Nothing partial has been "
+                   f"reported.",
+        ) from exc
+    finally:
+        _REPORT_SLOTS.release()
+
     return Response(
         content=blob, media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{name}"'})
@@ -462,7 +475,8 @@ async def api_meta() -> dict:
         "fx_convention": config.FX_CONVENTION,
         "fx_coverage_end": _fx_coverage_end(),
         "cost_basis_convention": config.COST_BASIS_CONVENTION,
-        "ca_report_available": _ca_report_module() is not None,
+        "ca_report_available": True,
+        "ca_report_sheets": CA_SHEET_COUNT,
         "limits": {
             "default_preview_rows": DEFAULT_PREVIEW_ROWS,
             "max_preview_rows": MAX_PREVIEW_ROWS,

@@ -708,7 +708,10 @@ input::placeholder{color:var(--tx3)}
             </div>
           </sc-if>
           <sc-if value="{{ noFys }}" hint-placeholder-val="{{ false }}">
-            <div style="border:var(--bw) dashed var(--bd-strong);border-radius:var(--r2);padding:14px;font-size:12.5px;color:var(--tx2)">No completed financial year contains activity for this address, so there is nothing to scope a report to.</div>
+            <div style="border:var(--bw) dashed var(--bd-strong);border-radius:var(--r2);padding:14px;font-size:12.5px;color:var(--tx2)">No financial year contains activity for this address, so there is nothing to scope a report to.</div>
+          </sc-if>
+          <sc-if value="{{ fysFailed }}" hint-placeholder-val="{{ false }}">
+            <div style="border:var(--bw) solid var(--neg);border-radius:var(--r2);padding:14px;font-size:12.5px;color:var(--tx2)" aria-live="polite"><strong style="color:var(--neg)">Could not list financial years.</strong> {{ fysErrorText }}</div>
           </sc-if>
         </div>
         <div>
@@ -780,7 +783,7 @@ class Component extends DCLogic {
     caveatsOpen: {}, checked: {}, gapAnim: 1,
     tab: "ledger", filter: "", sort: { ledger: { k: "ts_utc", d: 1 }, vda: { k: "sr_no", d: 1 } },
     docs: { open: false, id: "treatments-guide", search: "", active: "" },
-    report: { open: false, fy: null, fys: null, dl: null },
+    report: { open: false, fy: null, fys: null, dl: null, fysError: null },
     copied: false, live: "", theme: "dark", stepIdx: 0
   };
 
@@ -965,12 +968,22 @@ class Component extends DCLogic {
       if (!r.ok) { const err = new Error((body && (body.detail || body.message)) || ("HTTP " + r.status)); err.status = r.status; err.body = body; throw err; }
       return body;
     },
+    /* The server distinguishes "this address traded in no financial year"
+       (200, fys: []) from "the lookup failed" (4xx/5xx). Collapsing the two
+       would put a false statement about the user's own trading history on
+       screen, so the detail string is carried through and rendered. */
     fys: async (address) => {
       const r = await fetch(this.API_BASE + "/api/ca-report/fys?address=" + encodeURIComponent(address));
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
+      let body = null; try { body = await r.json(); } catch (e) { body = null; }
+      if (!r.ok) { const err = new Error((body && (body.detail || body.message)) || ("HTTP " + r.status)); err.status = r.status; throw err; }
+      return body;
     },
-    caReportUrl: (address, fy) => this.API_BASE + "/api/ca-report?address=" + encodeURIComponent(address) + "&fy=" + encodeURIComponent(fy)
+    caReportUrl: (address, fy) => {
+      const q = new URLSearchParams({ address: address, fy: fy });
+      const onramp = this.state.adv.onramp_cost;
+      if (onramp !== "" && onramp !== null && onramp !== undefined) q.set("onramp_cost", String(onramp));
+      return this.API_BASE + "/api/ca-report?" + q.toString();
+    }
   };
 
   /* ---------- actions ---------- */
@@ -1170,12 +1183,14 @@ class Component extends DCLogic {
   openReport = () => {
     this._lastFocus = document.activeElement;
     const addr = (this.state.data && this.state.data.meta && this.state.data.meta.address) || this.state.address.trim();
-    this.setState(s => ({ report: { open: true, fy: s.report.fy, fys: s.report.fys, dl: null } }), () => {
+    this.setState(s => ({ report: { open: true, fy: s.report.fy, fys: s.report.fys, dl: null, fysError: s.report.fysError } }), () => {
       if (this._modal) { const f = this._modal.querySelector("button"); if (f) f.focus(); }
       if (this.state.report.fys) return;
-      if (this.USE_MOCK) this.setState(s => ({ report: Object.assign({}, s.report, { fys: ["2025-26", "2024-25"], fy: "2025-26" }) }));
-      else if (addr) this.api.fys(addr).then(r => this.setState(s => ({ report: Object.assign({}, s.report, { fys: r.fys || [], fy: (r.fys || [])[0] || null }) }))).catch(() => this.setState(s => ({ report: Object.assign({}, s.report, { fys: [] }) })));
-      else this.setState(s => ({ report: Object.assign({}, s.report, { fys: [] }) }));
+      if (this.USE_MOCK) this.setState(s => ({ report: Object.assign({}, s.report, { fys: ["2025-26", "2024-25"], fy: "2025-26", fysError: null }) }));
+      else if (addr) this.api.fys(addr)
+        .then(r => this.setState(s => ({ report: Object.assign({}, s.report, { fys: r.fys || [], fy: (r.fys || [])[0] || null, fysError: r.available === false ? (r.detail || "This deployment cannot list financial years.") : null }) })))
+        .catch(e => this.setState(s => ({ report: Object.assign({}, s.report, { fys: [], fysError: e.message || "Could not reach the server." }) })));
+      else this.setState(s => ({ report: Object.assign({}, s.report, { fys: [], fysError: "Enter an address first." }) }));
     });
   };
   closeReport = () => this.setState(s => ({ report: Object.assign({}, s.report, { open: false }) }), () => { if (this._lastFocus && this._lastFocus.focus) this._lastFocus.focus(); });
@@ -1188,9 +1203,20 @@ class Component extends DCLogic {
       setTimeout(() => this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "ok", t: "Bundle ready. With USE_MOCK = false this downloads hl-tax-" + fy + ".zip from /api/ca-report." } }) })), 1100);
       return;
     }
-    fetch(this.api.caReportUrl(addr, fy)).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); }).then(b => {
-      this.saveBlob(b, "hl-tax-" + addr.slice(0, 8) + "-" + fy + ".zip");
-      this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "ok", t: "Downloaded hl-tax-" + fy + ".zip" } }) }));
+    let name = "ca_report_" + addr + "_FY" + fy + ".zip";
+    fetch(this.api.caReportUrl(addr, fy)).then(r => {
+      const cd = r.headers.get("content-disposition") || "";
+      const m = /filename="([^"]+)"/.exec(cd);
+      if (m) name = m[1];
+      if (r.ok) return r.blob();
+      /* An error body is JSON with a `detail` string, never a ZIP. Reading it
+         is the difference between "HTTP 422" and the sentence that says which
+         dates the engine has no rate for and how to fix it. */
+      return r.json().then(b => { throw new Error((b && (b.detail || b.message)) || ("HTTP " + r.status)); },
+                           () => { throw new Error("HTTP " + r.status); });
+    }).then(b => {
+      this.saveBlob(b, name);
+      this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "ok", t: "Downloaded " + name } }) }));
     }).catch(e => this.setState(s => ({ report: Object.assign({}, s.report, { dl: { k: "err", t: "Download failed: " + e.message } }) })));
   };
   saveBlob(blob, name) {
@@ -1391,7 +1417,7 @@ class Component extends DCLogic {
     }));
     const h = React.createElement;
     const hi_ = (html) => q ? html.replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"), '<mark style="background:var(--ac);color:var(--ac-tx)">$1</mark>') : html;
-    V.docBody = h("div", { key: doc.id + q, style: { display: "grid", gap: "26px" } }, secs.map(sec => h("section", { key: sec.id, "data-anchor": sec.id, style: { scrollMarginTop: "12px" } }, [
+    V.docBody = h("div", { key: doc.id + q, style: { display: "grid", gap: "26px", minWidth: 0 } }, secs.map(sec => h("section", { key: sec.id, "data-anchor": sec.id, style: { scrollMarginTop: "12px", minWidth: 0 } }, [
       h("div", { key: "hd", style: { display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "10px" } }, [
         h(sec.level === 1 ? "h2" : "h3", { key: "t", id: doc.id + "-" + sec.id, style: { margin: 0, fontSize: sec.level === 1 ? "17px" : "14px", fontWeight: 600, letterSpacing: "-.01em", color: "var(--tx)" } }, sec.title),
         h("button", { key: "b", type: "button", onClick: () => this.copySectionLink(doc.id, sec.id), title: "Copy link to this section", "aria-label": "Copy link to " + sec.title, style: { fontFamily: "var(--mono)", fontSize: "10px", background: "transparent", border: "1px solid var(--bd)", borderRadius: "2px", padding: "1px 6px", cursor: "pointer", color: "var(--tx3)" } }, "link")
@@ -1404,20 +1430,30 @@ class Component extends DCLogic {
     V.reportOpen = R.open; V.closeReport = this.closeReport;
     V.modalRef = (el) => { this._modal = el; };
     const fys = R.fys || [];
-    V.hasFys = fys.length > 0; V.noFys = R.fys !== null && fys.length === 0;
+    /* Three states, not two: some years, no years, or a failed lookup. The
+       middle one is a claim about the user's trading history and must never be
+       shown for the third. */
+    V.hasFys = fys.length > 0;
+    V.fysFailed = !!R.fysError;
+    V.noFys = R.fys !== null && fys.length === 0 && !R.fysError;
+    V.fysErrorText = R.fysError || "";
     V.fyChips = fys.map(fy => ({
       label: "FY " + fy, active: R.fy === fy,
       select: () => this.setState(s => ({ report: Object.assign({}, s.report, { fy: fy, dl: null }) })),
       style: "font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;border:var(--bw) solid " + (R.fy === fy ? "var(--ac)" : "var(--bd)") + ";background:" + (R.fy === fy ? "var(--ac-dim)" : "transparent") + ";color:" + (R.fy === fy ? "var(--ac)" : "var(--tx2)")
     }));
+    /* These descriptions must match what present/ca_report.py actually writes.
+       Three of them once promised per-reading arithmetic, a cost-of-acquisition
+       column and an unrealised figure — none of which the bundle contains, by
+       design. A manifest that oversells the file is worse than no manifest. */
     V.manifest = [
-      { name: "00_summary.csv", desc: "Financial-year totals: realised P&L, funding, fees, turnover, and the arithmetic under each reading, unlabelled by preference." },
-      { name: "01_futures_trades.csv", desc: "One row per closed episode: asset, dates, consideration, cost of acquisition, income, FX rate and FX date." },
-      { name: "02_funding.csv", desc: "Every funding payment and receipt, in USD and INR, with the rate used." },
-      { name: "03_fees.csv", desc: "Venue fees by event, in USD and INR." },
-      { name: "04_cashflows.csv", desc: "Deposits and withdrawals of stablecoin, with gross consideration for TDS purposes." },
-      { name: "05_open_positions.csv", desc: "Positions still open at the financial-year boundary, marked as unrealised and excluded from every total." },
-      { name: "06_assumptions_and_notes.csv", desc: "Every assumption, convention and caveat used, so the sheets are self-describing." }
+      { name: "00_summary.csv", desc: "Identity, counts and neutral totals for the year: gross profit, gross loss, net realised, fees, funding, turnover, deposits and withdrawals. No rate is applied to any of them." },
+      { name: "01_futures_trades.csv", desc: "One row per closed episode: pair, direction, open and close timestamps in UTC and IST, size, entry and exit price, gross notional, realised P&L, fee, net, and the FX rate and rate date used." },
+      { name: "02_funding.csv", desc: "Every funding payment and receipt in USD and INR, with the funding rate and position size, signed + received / − paid." },
+      { name: "03_fees.csv", desc: "Venue fees per event in USD and INR, signed + paid / − maker rebate, reconcilable independently of the trade sheet." },
+      { name: "04_cashflows.csv", desc: "USDC deposits and withdrawals on the venue, with the on-chain reference. They contribute zero to every total, and carry a nil TDS column with the reason." },
+      { name: "05_open_positions.csv", desc: "Positions still open, with entry price and size and no unrealised figure — that would need a mark price this tool does not fetch." },
+      { name: "06_assumptions_and_notes.csv", desc: "Every convention, FX rule, rounding choice and upstream caveat, verbatim, so the sheets are self-describing." }
     ];
     V.zipDisabled = !R.fy || (R.dl && R.dl.k === "pending");
     V.zipButtonStyle = "font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;border:0;border-radius:var(--r2);padding:11px 18px;cursor:" + (!R.fy ? "not-allowed" : "pointer") + ";background:" + (!R.fy ? "var(--s3)" : "var(--ac)") + ";color:" + (!R.fy ? "var(--tx3)" : "var(--ac-tx)");

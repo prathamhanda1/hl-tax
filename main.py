@@ -2,7 +2,7 @@
 main.py — Phase 6 orchestrator. One command, the whole pipeline.
 
     python main.py <address> [--refresh] [--out DIR] [--as-of YYYY-MM-DD]
-                             [--onramp-cost INR]
+                             [--onramp-cost INR] [--ca-report FY]
 
 Wires the layers in order and prints one progress line per phase, failing
 LOUDLY per phase rather than degrading silently (troubleshooting doctrine #4):
@@ -48,7 +48,8 @@ def _apply_cutoff(loaded, as_of: pd.Timestamp | None):
 
 
 def run(address: str, out_dir: str | None, refresh: bool,
-        as_of: pd.Timestamp | None, onramp_cost: float | None) -> int:
+        as_of: pd.Timestamp | None, onramp_cost: float | None,
+        *, ca_report_fy: str | None = None) -> int:
     from fetch.fetch_user import fetch_all_for_address, normalize_address
     from load.load import load_raw
     from reconstruct.positions import reconstruct_positions
@@ -132,10 +133,32 @@ def run(address: str, out_dir: str | None, refresh: bool,
     }
     paths = build_report(ledger, interpreted, out_dir, meta)
 
+    # Optional Phase 9 artifact. Purely additive: without the flag this
+    # block does not run and the three files above are byte-identical to
+    # every previous release.
+    bundles = []
+    if ca_report_fy:
+        from present.ca_report import available_fys, build_ca_report
+        fys = (available_fys(ledger) if ca_report_fy == "all"
+               else [ca_report_fy])
+        if not fys:
+            print("    No financial year contains activity; no CA "
+                  "bundle written.")
+        meta_ca = dict(meta, onramp_cost_inr=config.ON_RAMP_USDC_COST_INR,
+                       as_of=None if as_of is None else str(as_of.date()))
+        for fy in fys:
+            bundles.append(build_ca_report(
+                rec.closing_events, rec.open_positions, ledger, meta_ca,
+                out_dir, fy=fy,
+                warnings=list(loaded.warnings) + list(rec.warnings),
+                funding_ledger=funding_ledger))
+
     _log(7, TOTAL, "Done.")
     print(f"    ledger:       {paths.ledger_csv}")
     print(f"    schedule VDA: {paths.schedule_vda_csv}")
     print(f"    CA summary:   {paths.summary_html}")
+    for zp in bundles:
+        print(f"    CA bundle:    {zp}")
     return 0
 
 
@@ -159,11 +182,15 @@ def main(argv: list[str] | None = None) -> int:
                     help="bound analysis to events on/before this UTC date")
     ap.add_argument("--onramp-cost", default=None, type=float, metavar="INR",
                     help="your INR cost of acquiring the USDC (manual-input slot)")
+    ap.add_argument("--ca-report", default=None, metavar="FY",
+                    help="also emit the CA CSV bundle for an Indian financial "
+                         "year (e.g. 2025-26), or 'all' for every year present")
     args = ap.parse_args(argv)
 
     try:
         return run(args.address, args.out, args.refresh,
-                   _parse_as_of(args.as_of), args.onramp_cost)
+                   _parse_as_of(args.as_of), args.onramp_cost,
+                   ca_report_fy=args.ca_report)
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
         return 130
