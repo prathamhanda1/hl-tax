@@ -1,11 +1,11 @@
 {
  "schema_version": 1,
  "coverage_start": "2018-07-10",
- "coverage_end": "2026-07-17",
- "row_count": 1926,
- "last_fetch_utc": "2026-07-26T20:07:26.745869+00:00",
- "upstream_end": "2026-07-17",
- "seed_sha256": "ea1fad6a3c4f192c907b583b92e3e4d66329117ebf6b14e8fae715a43afd6ef1",
+ "coverage_end": "2026-08-05",
+ "row_count": 1939,
+ "last_fetch_utc": "2026-08-12T12:10:11.359154+00:00",
+ "upstream_end": "2026-08-05",
+ "seed_sha256": "b60e90eadfc3945614090808edafc8d63f237bf964f7f03349bc2e1a0c0ad066",
  "sources_present": [
   "frankfurter-fbil"
  ],
